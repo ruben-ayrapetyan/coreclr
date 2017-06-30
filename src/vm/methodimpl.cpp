@@ -72,10 +72,7 @@ PTR_MethodDesc MethodImpl::FindMethodDesc(DWORD slot, PTR_MethodDesc defaultRetu
         return defaultReturn;
     }
 
-    DPTR(RelativePointer<PTR_MethodDesc>) pRelPtrForSlot = GetImpMDsNonNull();
-    // The method descs are not offset by one
-    TADDR base = dac_cast<TADDR>(pRelPtrForSlot) + slotIndex * sizeof(RelativePointer<MethodDesc *>);
-    PTR_MethodDesc result = RelativePointer<PTR_MethodDesc>::GetValueMaybeNullAtPtr(base);
+    PTR_MethodDesc result = pImplementedMD[slotIndex]; // The method descs are not offset by one
 
     // Prejitted images may leave NULL in this table if
     // the methoddesc is declared in another module.
@@ -101,13 +98,13 @@ MethodDesc *MethodImpl::RestoreSlot(DWORD index, MethodTable *pMT)
         NOTHROW;
         GC_NOTRIGGER;
         FORBID_FAULT;
-        PRECONDITION(!pdwSlots.IsNull());
+        PRECONDITION(CheckPointer(pdwSlots));
     }
     CONTRACTL_END
 
     MethodDesc *result;
 
-    PREFIX_ASSUME(!pdwSlots.IsNull());
+    PREFIX_ASSUME(pdwSlots != NULL);
     DWORD slot = GetSlots()[index];
 
     // Since the overridden method is in a different module, we
@@ -129,9 +126,8 @@ MethodDesc *MethodImpl::RestoreSlot(DWORD index, MethodTable *pMT)
     _ASSERTE(result != NULL);
 
     // Don't worry about races since we would all be setting the same result
-    if (EnsureWritableExecutablePagesNoThrow(&pImplementedMD.GetValue()[index],
-                                             sizeof(pImplementedMD.GetValue()[index])))
-        pImplementedMD.GetValue()[index].SetValue(result);
+    if (EnsureWritableExecutablePagesNoThrow(&pImplementedMD[index], sizeof(pImplementedMD[index])))
+        pImplementedMD[index] = result;
 
     return result;
 }
@@ -143,7 +139,7 @@ void MethodImpl::SetSize(LoaderHeap *pHeap, AllocMemTracker *pamTracker, DWORD s
         THROWS;
         GC_NOTRIGGER;
         PRECONDITION(CheckPointer(this));
-        PRECONDITION(pdwSlots.GetValueMaybeNull()==NULL && pImplementedMD.GetValueMaybeNull()==NULL);
+        PRECONDITION(pdwSlots==NULL && pImplementedMD==NULL);
         INJECT_FAULT(ThrowOutOfMemory());
     } CONTRACTL_END;
 
@@ -153,7 +149,7 @@ void MethodImpl::SetSize(LoaderHeap *pHeap, AllocMemTracker *pamTracker, DWORD s
                                     S_SIZE_T(size) * S_SIZE_T(sizeof(DWORD)); // DWORD each for the slot numbers
 
         // MethodDesc* for each of the implemented methods
-        S_SIZE_T cbMethodDescs = S_SIZE_T(size) * S_SIZE_T(sizeof(RelativePointer<MethodDesc *>));
+        S_SIZE_T cbMethodDescs = S_SIZE_T(size) * S_SIZE_T(sizeof(MethodDesc *));
 
         // Need to align-up the slot entries so that the MethodDesc* array starts on a pointer boundary.
         cbCountAndSlots.AlignUp(sizeof(MethodDesc*));
@@ -165,36 +161,29 @@ void MethodImpl::SetSize(LoaderHeap *pHeap, AllocMemTracker *pamTracker, DWORD s
         LPBYTE pAllocData = (BYTE*)pamTracker->Track(pHeap->AllocMem(cbTotal));
 
         // Set the count and slot array
-        pdwSlots.SetValue((DWORD*)pAllocData);
+        pdwSlots = (DWORD*)pAllocData;
 
         // Set the MethodDesc* array. Make sure to adjust for alignment.
-        pImplementedMD.SetValue((RelativePointer<MethodDesc*> *)ALIGN_UP(pAllocData + cbCountAndSlots.Value(), sizeof(RelativePointer <MethodDesc*>)));
+        pImplementedMD = (MethodDesc**)ALIGN_UP(pAllocData + cbCountAndSlots.Value(), sizeof(MethodDesc*));
 
         // Store the count in the first entry
-        *pdwSlots.GetValue() = size;
+        *pdwSlots = size;
     }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
-void MethodImpl::SetData(DWORD* slots, RelativePointer<MethodDesc*>* md)
+void MethodImpl::SetData(DWORD* slots, MethodDesc** md)
 {
     CONTRACTL {
         NOTHROW;
         GC_NOTRIGGER;
         PRECONDITION(CheckPointer(this));
-        PRECONDITION(!pdwSlots.IsNull());
+        PRECONDITION(CheckPointer(pdwSlots));
     } CONTRACTL_END;
 
-    DWORD *pdwSize = pdwSlots.GetValue();
-    DWORD dwSize = *pdwSize;
-    memcpy(&(pdwSize[1]), slots, dwSize*sizeof(DWORD));
-
-    RelativePointer<MethodDesc *> *pImplMD = pImplementedMD.GetValue();
-
-    for (uint32_t i = 0; i < dwSize; ++i)
-    {
-        pImplMD[i].SetValue(md[i].GetValue());
-    }
+    DWORD dwSize = *pdwSlots;
+    memcpy(&(pdwSlots[1]), slots, dwSize*sizeof(DWORD));
+    memcpy(pImplementedMD, md, dwSize*sizeof(MethodDesc*));
 }
 
 #ifdef FEATURE_NATIVE_IMAGE_GENERATION
@@ -205,10 +194,10 @@ void MethodImpl::Save(DataImage *image)
     DWORD size = GetSize();
     _ASSERTE(size > 0);
 
-    image->StoreStructure(pdwSlots.GetValue(), (size+1)*sizeof(DWORD),
+    image->StoreStructure(pdwSlots, (size+1)*sizeof(DWORD),
                                     DataImage::ITEM_METHOD_DESC_COLD,
                                     sizeof(DWORD));
-    image->StoreStructure(pImplementedMD.GetValue(), size*sizeof(RelativePointer<MethodDesc*>),
+    image->StoreStructure(pImplementedMD, size*sizeof(MethodDesc*),
                                     DataImage::ITEM_METHOD_DESC_COLD,
                                     sizeof(MethodDesc*));
 }
@@ -225,22 +214,21 @@ void MethodImpl::Fixup(DataImage *image, PVOID p, SSIZE_T offset)
         // <TODO> Why not use FixupMethodDescPointer? </TODO>
         // <TODO> Does it matter if the MethodDesc needs a restore? </TODO>              
 
-        RelativePointer<MethodDesc *> *pRelPtr = pImplementedMD.GetValue();
-        MethodDesc * pMD = pRelPtr[iMD].GetValueMaybeNull();
+        MethodDesc * pMD = pImplementedMD[iMD];
 
         if (image->CanEagerBindToMethodDesc(pMD) &&
             image->CanHardBindToZapModule(pMD->GetLoaderModule()))
         {
-            image->FixupRelativePointerField(pImplementedMD.GetValue(), iMD * sizeof(RelativePointer<MethodDesc *>));
+            image->FixupPointerField(pImplementedMD, iMD * sizeof(MethodDesc *));
         }
         else
         {
-            image->ZeroPointerField(pImplementedMD.GetValue(), iMD * sizeof(RelativePointer<MethodDesc *>));
+            image->ZeroPointerField(pImplementedMD, iMD * sizeof(MethodDesc *));
         }
     }
 
-    image->FixupRelativePointerField(p, offset + offsetof(MethodImpl, pdwSlots));
-    image->FixupRelativePointerField(p, offset + offsetof(MethodImpl, pImplementedMD));
+    image->FixupPointerField(p, offset + offsetof(MethodImpl, pdwSlots));
+    image->FixupPointerField(p, offset + offsetof(MethodImpl, pImplementedMD));
 }
 
 #endif // FEATURE_NATIVE_IMAGE_GENERATION
@@ -259,20 +247,19 @@ MethodImpl::EnumMemoryRegions(CLRDataEnumMemoryFlags flags)
     // 'this' memory should already be enumerated as
     // part of the base MethodDesc.
 
-    if (GetSlotsRaw().IsValid() && GetSize())
+    if (pdwSlots.IsValid() && GetSize())
     {
         ULONG32 numSlots = GetSize();
-        DacEnumMemoryRegion(dac_cast<TADDR>(GetSlotsRawNonNull()),
+        DacEnumMemoryRegion(dac_cast<TADDR>(pdwSlots),
                             (numSlots + 1) * sizeof(DWORD));
 
-        if (GetImpMDs().IsValid())
+        if (pImplementedMD.IsValid())
         {
-            DacEnumMemoryRegion(dac_cast<TADDR>(GetImpMDsNonNull()),
-                                numSlots * sizeof(RelativePointer<MethodDesc *>));
+            DacEnumMemoryRegion(dac_cast<TADDR>(pImplementedMD),
+                                numSlots * sizeof(PTR_MethodDesc));
             for (DWORD i = 0; i < numSlots; i++)
             {
-                DPTR(RelativePointer<PTR_MethodDesc>) pRelPtr = GetImpMDsNonNull();
-                PTR_MethodDesc methodDesc = pRelPtr[i].GetValueMaybeNull();
+                PTR_MethodDesc methodDesc = pImplementedMD[i];
                 if (methodDesc.IsValid())
                 {
                     methodDesc->EnumMemoryRegions(flags);

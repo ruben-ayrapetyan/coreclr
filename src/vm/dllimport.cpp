@@ -4368,8 +4368,8 @@ void NDirect::PopulateNDirectMethodDesc(NDirectMethodDesc* pNMD, PInvokeStaticSi
     else
     {
         EnsureWritablePages(&pNMD->ndirect);
-        pNMD->ndirect.m_pszLibName.SetValueMaybeNull(szLibName);
-        pNMD->ndirect.m_pszEntrypointName.SetValueMaybeNull(szEntryPointName);
+        pNMD->ndirect.m_pszLibName = szLibName;
+        pNMD->ndirect.m_pszEntrypointName = szEntryPointName;
     }
 
 #ifdef _TARGET_X86_
