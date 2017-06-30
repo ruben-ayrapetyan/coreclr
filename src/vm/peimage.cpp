@@ -909,36 +909,13 @@ PTR_PEImageLayout PEImage::GetLayoutInternal(DWORD imageLayoutMask,DWORD flags)
     {
         _ASSERTE(HasID());
 
-        BOOL bIsMappedLayoutSuitable = ((imageLayoutMask & PEImageLayout::LAYOUT_MAPPED) != 0);
-        BOOL bIsFlatLayoutSuitable = ((imageLayoutMask & PEImageLayout::LAYOUT_FLAT) != 0);
-
-#if !defined(PLATFORM_UNIX)
-        if (bIsMappedLayoutSuitable)
+        if (imageLayoutMask&PEImageLayout::LAYOUT_MAPPED)
         {
-            bIsFlatLayoutSuitable = FALSE;
-        }
-#endif // !PLATFORM_UNIX
-
-        _ASSERTE(bIsMappedLayoutSuitable || bIsFlatLayoutSuitable);
-
-        BOOL bIsMappedLayoutRequired = !bIsFlatLayoutSuitable;
-        BOOL bIsFlatLayoutRequired = !bIsMappedLayoutSuitable;
-
-        if (bIsFlatLayoutRequired
-            || (bIsFlatLayoutSuitable && !m_bIsTrustedNativeImage))
-        {
-          _ASSERTE(bIsFlatLayoutSuitable);
-
-          BOOL bPermitWriteableSections = bIsFlatLayoutRequired;
-
-          pRetVal = PEImage::CreateLayoutFlat(bPermitWriteableSections);
-        }
-
-        if (pRetVal == NULL)
-        {
-          _ASSERTE(bIsMappedLayoutSuitable);
-
           pRetVal = PEImage::CreateLayoutMapped();
+        }
+        else
+        {
+          pRetVal = PEImage::CreateLayoutFlat();
         }
     }
 
@@ -1015,7 +992,7 @@ PTR_PEImageLayout PEImage::CreateLayoutMapped()
     return pRetVal;
 }
 
-PTR_PEImageLayout PEImage::CreateLayoutFlat(BOOL bPermitWriteableSections)
+PTR_PEImageLayout PEImage::CreateLayoutFlat()
 {
     CONTRACTL
     {
@@ -1025,22 +1002,12 @@ PTR_PEImageLayout PEImage::CreateLayoutFlat(BOOL bPermitWriteableSections)
     }
     CONTRACTL_END;
 
-    _ASSERTE(m_pLayouts[IMAGE_FLAT] == NULL);
+    PTR_PEImageLayout pRetVal;
 
-    PTR_PEImageLayout pFlatLayout = PEImageLayout::LoadFlat(GetFileHandle(),this);
+    pRetVal = PEImageLayout::LoadFlat(GetFileHandle(),this);
+    m_pLayouts[IMAGE_FLAT] = pRetVal;
 
-    if (!bPermitWriteableSections && pFlatLayout->HasWriteableSections())
-    {
-        pFlatLayout->Release();
-
-        return NULL;
-    }
-    else
-    {
-        m_pLayouts[IMAGE_FLAT] = pFlatLayout;
-
-        return pFlatLayout;
-    }
+    return pRetVal;
 }
 
 /* static */
@@ -1103,44 +1070,17 @@ void PEImage::Load()
     }
 
     SimpleWriteLockHolder lock(m_pLayoutLock);
-
-    _ASSERTE(m_pLayouts[IMAGE_LOADED] == NULL);
-
-#ifdef PLATFORM_UNIX
-    if (m_pLayouts[IMAGE_FLAT] != NULL
-        && m_pLayouts[IMAGE_FLAT]->CheckFormat()
-        && m_pLayouts[IMAGE_FLAT]->IsILOnly()
-        && !m_pLayouts[IMAGE_FLAT]->HasWriteableSections())
+    if(!IsFile())
     {
-        // IL-only images with writeable sections are mapped in general way,
-        // because the writeable sections should always be page-aligned
-        // to make possible setting another protection bits exactly for these sections
-        _ASSERTE(!m_pLayouts[IMAGE_FLAT]->HasWriteableSections());
-
-        // As the image is IL-only, there should no be native code to execute
-        _ASSERTE(!m_pLayouts[IMAGE_FLAT]->HasNativeEntryPoint());
-
-        m_pLayouts[IMAGE_FLAT]->AddRef();
-
-        SetLayout(IMAGE_LOADED, m_pLayouts[IMAGE_FLAT]);
+        if (!m_pLayouts[IMAGE_FLAT]->CheckILOnly())
+            ThrowHR(COR_E_BADIMAGEFORMAT);
+        if(m_pLayouts[IMAGE_LOADED]==NULL)
+            SetLayout(IMAGE_LOADED,PEImageLayout::LoadFromFlat(m_pLayouts[IMAGE_FLAT]));
     }
     else
-#endif // PLATFORM_UNIX
     {
-        if(!IsFile())
-        {
-            _ASSERTE(m_pLayouts[IMAGE_FLAT] != NULL);
-
-            if (!m_pLayouts[IMAGE_FLAT]->CheckILOnly())
-                ThrowHR(COR_E_BADIMAGEFORMAT);
-            if(m_pLayouts[IMAGE_LOADED]==NULL)
-                SetLayout(IMAGE_LOADED,PEImageLayout::LoadFromFlat(m_pLayouts[IMAGE_FLAT]));
-        }
-        else
-        {
-            if(m_pLayouts[IMAGE_LOADED]==NULL)
-                SetLayout(IMAGE_LOADED,PEImageLayout::Load(this,TRUE));
-        }
+        if(m_pLayouts[IMAGE_LOADED]==NULL)
+            SetLayout(IMAGE_LOADED,PEImageLayout::Load(this,TRUE));
     }
 }
 

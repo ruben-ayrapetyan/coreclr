@@ -262,7 +262,7 @@ private:
     PTR_PEImageLayout CreateLayoutMapped();
 
     // Create the flat layout
-    PTR_PEImageLayout CreateLayoutFlat(BOOL bPermitWriteableSections);
+    PTR_PEImageLayout CreateLayoutFlat();
 #endif
     // Get an existing layout corresponding to the mask, no AddRef
     PTR_PEImageLayout GetExistingLayoutInternal(DWORD imageLayoutMask);
