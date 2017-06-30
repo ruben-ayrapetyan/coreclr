@@ -677,7 +677,7 @@ class EEClassOptionalFields
 
     // Variance info for each type parameter (gpNonVariant, gpCovariant, or gpContravariant)
     // If NULL, this type has no type parameters that are co/contravariant
-    RelativePointer<PTR_BYTE> m_pVarianceInfo;
+    BYTE* m_pVarianceInfo;
 
     //
     // COM RELATED FIELDS.
@@ -715,13 +715,6 @@ class EEClassOptionalFields
 
     // Set default values for optional fields.
     inline void Init();
-
-    PTR_BYTE GetVarianceInfo()
-    {
-        LIMITED_METHOD_DAC_CONTRACT;
-
-        return ReadPointerMaybeNull(this, &EEClassOptionalFields::m_pVarianceInfo);
-    }
 };
 typedef DPTR(EEClassOptionalFields) PTR_EEClassOptionalFields;
 
@@ -979,12 +972,12 @@ public:
     // will return the method table pointer corresponding to the "canonical"
     // instantiation, as defined in typehandle.h.
     //
-    inline PTR_MethodTable GetMethodTable()
+    inline MethodTable* GetMethodTable()
     {
         LIMITED_METHOD_CONTRACT;
         SUPPORTS_DAC;
 
-        return ReadPointerMaybeNull(this, &EEClass::m_pMethodTable);
+        return m_pMethodTable;
     }
 
     // DO NOT ADD ANY ASSERTS TO THIS METHOD.
@@ -1001,14 +994,14 @@ public:
         CANNOT_HAVE_CONTRACT;
         SUPPORTS_DAC;
 
-        return ReadPointerMaybeNull(this, &EEClass::m_pMethodTable);
+        return m_pMethodTable;
     }
-
 #ifndef DACCESS_COMPILE
+
     inline void SetMethodTable(MethodTable*  pMT)
     {
         LIMITED_METHOD_CONTRACT;
-        m_pMethodTable.SetValueMaybeNull(pMT);
+        m_pMethodTable = pMT;
     }
 #endif // !DACCESS_COMPILE
 
@@ -1564,15 +1557,14 @@ public:
     inline PTR_GuidInfo GetGuidInfo()
     {
         LIMITED_METHOD_DAC_CONTRACT;
-
-        return ReadPointerMaybeNull(this, &EEClass::m_pGuidInfo);
+        return m_pGuidInfo;
     }
 
     inline void SetGuidInfo(GuidInfo* pGuidInfo)
     {
         WRAPPER_NO_CONTRACT;
         #ifndef DACCESS_COMPILE
-        EnsureWritablePages(&m_pGuidInfo)->SetValueMaybeNull(pGuidInfo);
+        *EnsureWritablePages(&m_pGuidInfo) = pGuidInfo;
         #endif // DACCESS_COMPILE
     }
 
@@ -1741,7 +1733,6 @@ public:
         GetOptionalFields()->m_pDictLayout = pLayout;
     }
 
-#ifndef DACCESS_COMPILE
     static CorGenericParamAttr GetVarianceOfTypeParameter(BYTE * pbVarianceInfo, DWORD i)
     {
         LIMITED_METHOD_CONTRACT;
@@ -1760,16 +1751,15 @@ public:
     BYTE* GetVarianceInfo()
     {
         LIMITED_METHOD_CONTRACT;
-        return HasOptionalFields() ? GetOptionalFields()->GetVarianceInfo() : NULL;
+        return HasOptionalFields() ? GetOptionalFields()->m_pVarianceInfo : NULL;
     }
 
     void SetVarianceInfo(BYTE *pVarianceInfo)
     {
         LIMITED_METHOD_CONTRACT;
         _ASSERTE(HasOptionalFields());
-        GetOptionalFields()->m_pVarianceInfo.SetValueMaybeNull(pVarianceInfo);
+        GetOptionalFields()->m_pVarianceInfo = pVarianceInfo;
     }
-#endif // !DACCESS_COMPILE
 
     // Check that a signature blob uses type parameters correctly
     // in accordance with the variance annotations specified by this class
@@ -1981,7 +1971,7 @@ public:
     // C_ASSERTs in Jitinterface.cpp need this to be public to check the offset.
     // Put it first so the offset rarely changes, which just reduces the number of times we have to fiddle
     // with the offset.
-    RelativePointer<PTR_GuidInfo> m_pGuidInfo;  // The cached guid information for interfaces.
+    PTR_GuidInfo m_pGuidInfo;           // The cached guid inforation for interfaces.
 
 #ifdef _DEBUG
 public:
@@ -1995,7 +1985,7 @@ private:
     RelativePointer<PTR_EEClassOptionalFields> m_rpOptionalFields;
 
     // TODO: Remove this field. It is only used by SOS and object validation for stress.
-    RelativePointer<PTR_MethodTable> m_pMethodTable;
+    PTR_MethodTable m_pMethodTable;
 
     RelativePointer<PTR_FieldDesc> m_pFieldDescList;
     RelativePointer<PTR_MethodDescChunk> m_pChunks;
@@ -2191,15 +2181,15 @@ struct ComPlusCallInfo;
 class DelegateEEClass : public EEClass
 {
 public:
-    PTR_Stub                         m_pStaticCallStub;
-    PTR_Stub                         m_pInstRetBuffCallStub;
-    RelativePointer<PTR_MethodDesc>  m_pInvokeMethod;
-    PTR_Stub                         m_pMultiCastInvokeStub;
-    PTR_Stub                         m_pSecureDelegateInvokeStub;
-    UMThunkMarshInfo*                m_pUMThunkMarshInfo;
-    RelativePointer<PTR_MethodDesc>  m_pBeginInvokeMethod;
-    RelativePointer<PTR_MethodDesc>  m_pEndInvokeMethod;
-    Volatile<PCODE>                  m_pMarshalStub;
+    PTR_Stub            m_pStaticCallStub;
+    PTR_Stub            m_pInstRetBuffCallStub;
+    PTR_MethodDesc      m_pInvokeMethod;
+    PTR_Stub            m_pMultiCastInvokeStub;
+    PTR_Stub            m_pSecureDelegateInvokeStub;
+    UMThunkMarshInfo*   m_pUMThunkMarshInfo;
+    PTR_MethodDesc      m_pBeginInvokeMethod;
+    PTR_MethodDesc      m_pEndInvokeMethod;
+    Volatile<PCODE>     m_pMarshalStub;
 
 #ifdef FEATURE_COMINTEROP
     ComPlusCallInfo *m_pComPlusCallInfo;
@@ -2211,21 +2201,6 @@ public:
     //
     MethodDesc*         m_pForwardStubMD; // marshaling stub for calls to unmanaged code
     MethodDesc*         m_pReverseStubMD; // marshaling stub for calls from unmanaged code
-
-    PTR_MethodDesc GetInvokeMethod()
-    {
-        return ReadPointer(this, &DelegateEEClass::m_pInvokeMethod);
-    }
-
-    PTR_MethodDesc GetBeginInvokeMethod()
-    {
-        return ReadPointer(this, &DelegateEEClass::m_pBeginInvokeMethod);
-    }
-
-    PTR_MethodDesc GetEndInvokeMethod()
-    {
-        return ReadPointer(this, &DelegateEEClass::m_pEndInvokeMethod);
-    }
 
 #ifndef DACCESS_COMPILE
     DelegateEEClass() : EEClass(sizeof(DelegateEEClass))

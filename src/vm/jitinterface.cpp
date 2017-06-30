@@ -5210,7 +5210,7 @@ void CEEInfo::getCallInfo(
             //  2) Delegate.Invoke() - since a Delegate is a sealed class as per ECMA spec
             //  3) JIT intrinsics - since they have pre-defined behavior
             devirt = pTargetMD->GetMethodTable()->IsValueType() ||
-                     (pTargetMD->GetMethodTable()->IsDelegate() && ((DelegateEEClass*)(pTargetMD->GetMethodTable()->GetClass()))->GetInvokeMethod() == pMD) ||
+                     (pTargetMD->GetMethodTable()->IsDelegate() && ((DelegateEEClass*)(pTargetMD->GetMethodTable()->GetClass()))->m_pInvokeMethod == pMD) ||
                      (pTargetMD->IsFCall() && ECall::GetIntrinsicID(pTargetMD) != CORINFO_INTRINSIC_Illegal);
 
             callVirtCrossingVersionBubble = true;
@@ -6580,7 +6580,7 @@ DWORD CEEInfo::getMethodAttribsInternal (CORINFO_METHOD_HANDLE ftn)
         result |= CORINFO_FLG_FORCEINLINE;
     }
 
-    if (pMT->IsDelegate() && ((DelegateEEClass*)(pMT->GetClass()))->GetInvokeMethod() == pMD)
+    if (pMT->IsDelegate() && ((DelegateEEClass*)(pMT->GetClass()))->m_pInvokeMethod == pMD)
     {
         // This is now used to emit efficient invoke code for any delegate invoke,
         // including multicast.

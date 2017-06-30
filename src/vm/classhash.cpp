@@ -145,7 +145,7 @@ VOID EEClassHashTable::UncompressModuleAndNonExportClassDef(HashDatum Data, Modu
     _ASSERTE(!(dwData & EECLASSHASH_MDEXPORT_DISCR));
 
     *pCL = ((dwData >> 1) & 0x00ffffff) | mdtTypeDef;
-    *ppModule = GetModule();
+    *ppModule = m_pModule;
 }
 
 bool EEClassHashTable::UncompressModuleAndClassDef(HashDatum Data, Loader::LoadFlag loadFlag,
@@ -172,7 +172,8 @@ bool EEClassHashTable::UncompressModuleAndClassDef(HashDatum Data, Loader::LoadF
     if(dwData & EECLASSHASH_MDEXPORT_DISCR) {
         *pmdFoundExportedType = ((dwData >> 1) & 0x00ffffff) | mdtExportedType;
 
-        *ppModule = GetModule()->GetAssembly()->FindModuleByExportedType(*pmdFoundExportedType, loadFlag, mdTypeDefNil, pCL);
+        *ppModule = m_pModule->GetAssembly()->
+            FindModuleByExportedType(*pmdFoundExportedType, loadFlag, mdTypeDefNil, pCL);
     }
     else {
         UncompressModuleAndNonExportClassDef(Data, ppModule, pCL);
@@ -231,7 +232,7 @@ VOID EEClassHashTable::ConstructKeyFromData(PTR_EEClassHashEntry pEntry, // IN  
         // in this case, the lifetime of Key is bounded by the lifetime of cqb, which will free the memory
         // it allocated on destruction.
         
-        _ASSERTE(!m_pModule.IsNull());
+        _ASSERTE(m_pModule);
         LPSTR        pszName = NULL;
         LPSTR        pszNameSpace = NULL;
         IMDInternalImport *pInternalImport = NULL;
@@ -258,7 +259,7 @@ VOID EEClassHashTable::ConstructKeyFromData(PTR_EEClassHashEntry pEntry, // IN  
             mdToken mdtUncompressed = UncompressModuleAndClassDef(Data);
             if (TypeFromToken(mdtUncompressed) == mdtExportedType)
             {
-                IfFailThrow(GetModule()->GetClassLoader()->GetAssembly()->GetManifestImport()->GetExportedTypeProps(
+                IfFailThrow(m_pModule->GetClassLoader()->GetAssembly()->GetManifestImport()->GetExportedTypeProps(
                     mdtUncompressed, 
                     (LPCSTR *)&pszNameSpace, 
                     (LPCSTR *)&pszName,  
@@ -354,7 +355,7 @@ EEClassHashEntry_t *EEClassHashTable::InsertValue(LPCUTF8 pszNamespace, LPCUTF8 
 
     _ASSERTE(pszNamespace != NULL);
     _ASSERTE(pszClassName != NULL);
-    _ASSERTE(!m_pModule.IsNull());
+    _ASSERTE(m_pModule);
 
     EEClassHashEntry *pEntry = BaseAllocateEntry(pamTracker);
 
@@ -432,9 +433,10 @@ EEClassHashEntry_t *EEClassHashTable::InsertValueIfNotFound(LPCUTF8 pszNamespace
     }
     CONTRACTL_END;
 
-    _ASSERTE(!m_pModule.IsNull());
+    _ASSERTE(m_pModule);
     _ASSERTE(pszNamespace != NULL);
     _ASSERTE(pszClassName != NULL);
+    _ASSERTE(m_pModule);
 
     EEClassHashEntry_t * pNewEntry = FindItem(pszNamespace, pszClassName, IsNested, NULL);
 
@@ -477,7 +479,7 @@ EEClassHashEntry_t *EEClassHashTable::FindItem(LPCUTF8 pszNamespace, LPCUTF8 psz
     }
     CONTRACTL_END;
 
-    _ASSERTE(!m_pModule.IsNull());
+    _ASSERTE(m_pModule);
     _ASSERTE(pszNamespace != NULL);
     _ASSERTE(pszClassName != NULL);
 
@@ -531,7 +533,7 @@ EEClassHashEntry_t *EEClassHashTable::FindNextNestedClass(NameHandle* pName, PTR
     }
     CONTRACTL_END;
 
-    _ASSERTE(!m_pModule.IsNull());
+    _ASSERTE(m_pModule);
     _ASSERTE(pName);
 
     if (pName->GetNameSpace())
@@ -562,7 +564,7 @@ EEClassHashEntry_t *EEClassHashTable::FindNextNestedClass(LPCUTF8 pszNamespace, 
     }
     CONTRACTL_END;
 
-    _ASSERTE(!m_pModule.IsNull());
+    _ASSERTE(m_pModule);
 
     PTR_EEClassHashEntry pSearch = BaseFindNextEntryByHash(pContext);
 
@@ -595,7 +597,7 @@ EEClassHashEntry_t *EEClassHashTable::FindNextNestedClass(LPCUTF8 pszFullyQualif
     }
     CONTRACTL_END;
 
-    _ASSERTE(!m_pModule.IsNull());
+    _ASSERTE(m_pModule);
 
     CQuickBytes szNamespace;
 
@@ -637,7 +639,7 @@ EEClassHashEntry_t * EEClassHashTable::GetValue(LPCUTF8 pszFullyQualifiedName, P
     }
     CONTRACTL_END;
 
-    _ASSERTE(!m_pModule.IsNull());
+    _ASSERTE(m_pModule);
     
     CQuickBytes szNamespace;
     
@@ -683,7 +685,7 @@ EEClassHashEntry_t * EEClassHashTable::GetValue(LPCUTF8 pszNamespace, LPCUTF8 ps
     CONTRACTL_END;
 
 
-    _ASSERTE(!m_pModule.IsNull());
+    _ASSERTE(m_pModule);
     EEClassHashEntry_t *pItem = FindItem(pszNamespace, pszClassName, IsNested, pContext);
     if (pItem)
         *pData = pItem->GetData();
@@ -707,7 +709,7 @@ EEClassHashEntry_t * EEClassHashTable::GetValue(NameHandle* pName, PTR_VOID *pDa
 
 
     _ASSERTE(pName);
-    _ASSERTE(!m_pModule.IsNull());
+    _ASSERTE(m_pModule);
     if(pName->GetNameSpace() == NULL) {
         return GetValue(pName->GetName(), pData, IsNested, pContext);
     }
@@ -751,7 +753,7 @@ BOOL EEClassHashTable::CompareKeys(PTR_EEClassHashEntry pEntry, LPCUTF8 * pKey2)
     CONTRACTL_END;
 
 
-    _ASSERTE(!m_pModule.IsNull());
+    _ASSERTE(m_pModule);
     _ASSERTE (pEntry);
     _ASSERTE (pKey2);
 
@@ -776,7 +778,7 @@ void EEClassHashTable::Save(DataImage *image, CorProfileData *profileData)
     STANDARD_VM_CONTRACT;
 
     // See comment on PrepareExportedTypesForSaving for what's going on here.
-    if (GetModule()->IsManifest())
+    if (m_pModule->IsManifest())
         PrepareExportedTypesForSaving(image);
 
     // The base class handles most of the saving logic (it controls the layout of the hash memory). It will
@@ -874,11 +876,11 @@ void EEClassHashTable::PrepareExportedTypesForSaving(DataImage *image)
         THROWS;
         GC_TRIGGERS;
         PRECONDITION(GetAppDomain()->IsCompilationDomain());
-        PRECONDITION(GetModule()->IsManifest());
+        PRECONDITION(m_pModule->IsManifest());
     }
     CONTRACTL_END
 
-    IMDInternalImport *pImport = GetModule()->GetMDImport();
+    IMDInternalImport *pImport = m_pModule->GetMDImport();
 
     HENUMInternalHolder phEnum(pImport);
     phEnum.EnumInit(mdtExportedType, mdTokenNil);
@@ -898,7 +900,7 @@ void EEClassHashTable::PrepareExportedTypesForSaving(DataImage *image)
             &typeDef, 
             &dwFlags)))
         {
-            THROW_BAD_FORMAT(BFA_NOFIND_EXPORTED_TYPE, GetModule());
+            THROW_BAD_FORMAT(BFA_NOFIND_EXPORTED_TYPE, m_pModule);
             continue;
         }
 
@@ -934,19 +936,16 @@ void EEClassHashTable::PrepareExportedTypesForSaving(DataImage *image)
                 // "CompareNestedEntryWithExportedType" will check if "pEntry->pEncloser" is a type of "mdImpl",
                 // as well as walking up the enclosing chain.
                 _ASSERTE (TypeFromToken(mdImpl) == mdtExportedType);
-                while ((!GetModule()->GetClassLoader()->CompareNestedEntryWithExportedType(pImport,
-                                                                                           mdImpl,
-                                                                                           this,
-                                                                                           pEntry->GetEncloser()))
-                       && (pEntry = FindNextNestedClass(pszNameSpace, pszName, &data, &sContext)) != NULL)
-                {
-                    ;
-                }
+                while ((!m_pModule->GetClassLoader()->CompareNestedEntryWithExportedType(pImport,
+                                                                                         mdImpl,
+                                                                                         this,
+                                                                                         pEntry->GetEncloser())) &&
+                       (pEntry = FindNextNestedClass(pszNameSpace, pszName, &data, &sContext)) != NULL);
             }
         }
 
         if (!pEntry) {
-            THROW_BAD_FORMAT(BFA_NOFIND_EXPORTED_TYPE, GetModule());
+            THROW_BAD_FORMAT(BFA_NOFIND_EXPORTED_TYPE, m_pModule);   
             continue;
         }
         
@@ -1058,8 +1057,8 @@ EEClassHashTable *EEClassHashTable::MakeCaseInsensitiveTable(Module *pModule, Al
 
 
 
-    _ASSERTE(!m_pModule.IsNull());
-    _ASSERTE(pModule == GetModule());
+    _ASSERTE(m_pModule);
+    _ASSERTE (pModule == m_pModule);
 
     // Allocate the table and verify that we actually got one.
     EEClassHashTable * pCaseInsTable = EEClassHashTable::Create(pModule,

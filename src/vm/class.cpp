@@ -3098,7 +3098,7 @@ void EEClass::Save(DataImage *image, MethodTable *pMT)
             {
                 // make sure we don't store a GUID_NULL guid in the NGEN image
                 // instead we'll compute the GUID at runtime, and throw, if appropriate
-                m_pGuidInfo.SetValueMaybeNull(NULL);
+                m_pGuidInfo = NULL;
             }
         }
     }
@@ -3175,14 +3175,14 @@ void EEClass::Fixup(DataImage *image, MethodTable *pMT)
     }
 
     if (HasOptionalFields())
-        image->FixupRelativePointerField(GetOptionalFields(), offsetof(EEClassOptionalFields, m_pVarianceInfo));
+        image->FixupPointerField(GetOptionalFields(), offsetof(EEClassOptionalFields, m_pVarianceInfo));
 
     //
     // We pass in the method table, because some classes (e.g. remoting proxy)
     // have fake method tables set up in them & we want to restore the regular
     // one.
     //
-    image->FixupField(this, offsetof(EEClass, m_pMethodTable), pMT, 0, IMAGE_REL_BASED_RelativePointer);
+    image->FixupField(this, offsetof(EEClass, m_pMethodTable), pMT);
 
     //
     // Fixup MethodDescChunk and MethodDescs
@@ -3257,9 +3257,9 @@ void EEClass::Fixup(DataImage *image, MethodTable *pMT)
     }
     else if (IsDelegate())
     {
-        image->FixupRelativePointerField(this, offsetof(DelegateEEClass, m_pInvokeMethod));
-        image->FixupRelativePointerField(this, offsetof(DelegateEEClass, m_pBeginInvokeMethod));
-        image->FixupRelativePointerField(this, offsetof(DelegateEEClass, m_pEndInvokeMethod));
+        image->FixupPointerField(this, offsetof(DelegateEEClass, m_pInvokeMethod));
+        image->FixupPointerField(this, offsetof(DelegateEEClass, m_pBeginInvokeMethod));
+        image->FixupPointerField(this, offsetof(DelegateEEClass, m_pEndInvokeMethod));
 
         image->ZeroPointerField(this, offsetof(DelegateEEClass, m_pUMThunkMarshInfo));
         image->ZeroPointerField(this, offsetof(DelegateEEClass, m_pStaticCallStub));
@@ -3292,7 +3292,7 @@ void EEClass::Fixup(DataImage *image, MethodTable *pMT)
     //
 
     if (IsInterface() && GetGuidInfo() != NULL)
-        image->FixupRelativePointerField(this, offsetof(EEClass, m_pGuidInfo));
+        image->FixupPointerField(this, offsetof(EEClass, m_pGuidInfo));
     else
         image->ZeroPointerField(this, offsetof(EEClass, m_pGuidInfo));
 

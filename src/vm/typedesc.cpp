@@ -1373,7 +1373,7 @@ void TypeVarTypeDesc::Fixup(DataImage *image)
     STANDARD_VM_CONTRACT;
 
     LOG((LF_ZAP, LL_INFO10000, "  TypeVarTypeDesc::Fixup %x (%p)\n", GetToken(), this));
-    image->FixupRelativePointerField(this, offsetof(TypeVarTypeDesc, m_pModule));
+    image->FixupPointerField(this, offsetof(TypeVarTypeDesc, m_pModule));
     image->ZeroField(this, offsetof(TypeVarTypeDesc, m_hExposedClassObject), sizeof(m_hExposedClassObject));
 
     // We don't persist the constraints: instead, load them back on demand
@@ -1394,10 +1394,10 @@ MethodDesc * TypeVarTypeDesc::LoadOwnerMethod()
     }
     CONTRACTL_END;
 
-    MethodDesc *pMD = GetModule()->LookupMethodDef(m_typeOrMethodDef);
+    MethodDesc *pMD = m_pModule->LookupMethodDef(m_typeOrMethodDef);
     if (pMD == NULL)
     {
-        pMD = MemberLoader::GetMethodDescFromMethodDef(GetModule(), m_typeOrMethodDef, FALSE);
+        pMD = MemberLoader::GetMethodDescFromMethodDef(m_pModule, m_typeOrMethodDef, FALSE);
     }
     return pMD;
 }
@@ -1414,10 +1414,10 @@ TypeHandle TypeVarTypeDesc::LoadOwnerType()
     }
     CONTRACTL_END;
 
-    TypeHandle genericType = GetModule()->LookupTypeDef(m_typeOrMethodDef);
+    TypeHandle genericType = m_pModule->LookupTypeDef(m_typeOrMethodDef);
     if (genericType.IsNull())
     {
-        genericType = ClassLoader::LoadTypeDefThrowing(GetModule(), m_typeOrMethodDef,
+        genericType = ClassLoader::LoadTypeDefThrowing(m_pModule, m_typeOrMethodDef,
             ClassLoader::ThrowIfNotFound,
             ClassLoader::PermitUninstDefOrRef);
     }
@@ -1506,7 +1506,7 @@ void TypeVarTypeDesc::LoadConstraints(ClassLoadLevel level /* = CLASS_LOADED */)
         numConstraints = pInternalImport->EnumGetCount(&hEnum);
         if (numConstraints != 0)
         {
-            LoaderAllocator* pAllocator = GetModule()->GetLoaderAllocator();
+            LoaderAllocator* pAllocator=m_pModule->GetLoaderAllocator();
             // If there is a single class constraint we put in in element 0 of the array
             AllocMemHolder<TypeHandle> constraints 
                 (pAllocator->GetLowFrequencyHeap()->AllocMem(S_SIZE_T(numConstraints) * S_SIZE_T(sizeof(TypeHandle))));
@@ -2434,11 +2434,9 @@ TypeVarTypeDesc::EnumMemoryRegions(CLRDataEnumMemoryFlags flags)
     SUPPORTS_DAC;
     DAC_ENUM_DTHIS();
 
-    PTR_TypeVarTypeDesc ptrThis(this);
-
-    if (GetModule().IsValid())
+    if (m_pModule.IsValid())
     {
-        GetModule()->EnumMemoryRegions(flags, true);
+        m_pModule->EnumMemoryRegions(flags, true);
     }
 
     if (m_numConstraints != (DWORD)-1)

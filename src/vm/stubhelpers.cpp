@@ -95,7 +95,7 @@ MethodDesc *StubHelpers::ResolveInteropMethod(Object *pThisUNSAFE, MethodDesc *p
         MethodTable *pMT = pThisUNSAFE->GetMethodTable();
 
         _ASSERTE(pMT->IsDelegate());
-        return ((DelegateEEClass *)pMT->GetClass())->GetInvokeMethod();
+        return ((DelegateEEClass *)pMT->GetClass())->m_pInvokeMethod;
     }
     return pMD;
 }
@@ -1550,7 +1550,7 @@ FCIMPL3(SIZE_T, StubHelpers::ProfilerBeginTransitionCallback, SIZE_T pSecretPara
             _ASSERTE(pMT->IsDelegate());
 
             EEClass * pClass = pMT->GetClass();
-            pRealMD = ((DelegateEEClass*)pClass)->GetInvokeMethod();
+            pRealMD = ((DelegateEEClass*)pClass)->m_pInvokeMethod;
             _ASSERTE(pRealMD);
         }
     }
