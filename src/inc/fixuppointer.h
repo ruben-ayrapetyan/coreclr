@@ -30,6 +30,8 @@ template<typename PTR_TYPE>
 class RelativePointer
 {
 public:
+  static constexpr bool isRelative = true;
+    typedef PTR_TYPE type;
 #ifndef DACCESS_COMPILE
     RelativePointer()
     {
@@ -172,7 +174,10 @@ private:
 template<typename PTR_TYPE>
 class FixupPointer
 {
+  
 public:
+  static constexpr bool isRelative = false;
+    typedef PTR_TYPE type;
     // Returns whether the encoded pointer is NULL.
     BOOL IsNull() const
     {
@@ -237,6 +242,9 @@ template<typename PTR_TYPE>
 class RelativeFixupPointer
 {
 public:
+  
+  static constexpr bool isRelative = true;
+    typedef PTR_TYPE type;
 
 #ifndef DACCESS_COMPILE
     RelativeFixupPointer()
@@ -421,6 +429,8 @@ template<typename PTR_TYPE>
 class PlainPointer
 {
 public:
+  static constexpr bool isRelative = false;
+    typedef PTR_TYPE type;
     // Returns whether the encoded pointer is NULL.
     BOOL IsNull() const
     {
