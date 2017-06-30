@@ -321,12 +321,22 @@ endif ; _DEBUG
         jmp     FramedAllocateString
 NESTED_END AllocateStringFastMP, _TEXT
 
-; HCIMPL2(Object*, JIT_NewArr1VC_MP, CORINFO_CLASS_HANDLE arrayMT, INT_PTR size)
+FIX_INDIRECTION macro Reg
+ifdef FEATURE_PREJIT
+        test    Reg, 1
+        jz      @F
+        mov     Reg, [Reg-1]
+    @@:
+endif
+endm
+
+; HCIMPL2(Object*, JIT_NewArr1, CORINFO_CLASS_HANDLE arrayTypeHnd_, INT_PTR size)
 NESTED_ENTRY JIT_NewArr1VC_MP, _TEXT
         alloc_stack MIN_SIZE
         END_PROLOGUE
 
-        ; We were passed a (shared) method table in RCX, which contains the element type.
+        ; We were passed a type descriptor in RCX, which contains the (shared)
+        ; array method table and the element type.
 
         ; The element count is in RDX
 
@@ -346,12 +356,17 @@ NESTED_ENTRY JIT_NewArr1VC_MP, _TEXT
         CALL_GETTHREAD
         mov     r11, rax
 
+        ; we need to load the true method table from the type desc
+        mov     r9, [rcx + OFFSETOF__ArrayTypeDesc__m_TemplateMT - 2]
+        
+        FIX_INDIRECTION r9
+ 
         cmp     rdx, (65535 - 256)
         jae     OversizedArray
 
-        movzx   r8d, word ptr [rcx + OFFSETOF__MethodTable__m_dwFlags]  ; component size is low 16 bits
+        movzx   r8d, word ptr [r9 + OFFSETOF__MethodTable__m_dwFlags]  ; component size is low 16 bits
         imul    r8d, edx  ; signed mul, but won't overflow due to length restriction above
-        add     r8d, dword ptr [rcx + OFFSET__MethodTable__m_BaseSize]
+        add     r8d, dword ptr [r9 + OFFSET__MethodTable__m_BaseSize]
 
         ; round the size to a multiple of 8
 
@@ -368,7 +383,7 @@ NESTED_ENTRY JIT_NewArr1VC_MP, _TEXT
         ja      AllocFailed
 
         mov     [r11 + OFFSET__Thread__m_alloc_context__alloc_ptr], r8
-        mov     [rax], rcx
+        mov     [rax], r9
 
         mov     dword ptr [rax + OFFSETOF__ArrayBase__m_NumComponents], edx
 
@@ -386,12 +401,13 @@ endif ; _DEBUG
 NESTED_END JIT_NewArr1VC_MP, _TEXT
 
 
-; HCIMPL2(Object*, JIT_NewArr1OBJ_MP, CORINFO_CLASS_HANDLE arrayMT, INT_PTR size)
+; HCIMPL2(Object*, JIT_NewArr1, CORINFO_CLASS_HANDLE arrayTypeHnd_, INT_PTR size)
 NESTED_ENTRY JIT_NewArr1OBJ_MP, _TEXT
         alloc_stack MIN_SIZE
         END_PROLOGUE
 
-        ; We were passed a (shared) method table in RCX, which contains the element type.
+        ; We were passed a type descriptor in RCX, which contains the (shared)
+        ; array method table and the element type.
 
         ; The element count is in RDX
 
@@ -408,11 +424,16 @@ NESTED_ENTRY JIT_NewArr1OBJ_MP, _TEXT
         CALL_GETTHREAD
         mov     r11, rax
 
+        ; we need to load the true method table from the type desc
+        mov     r9, [rcx + OFFSETOF__ArrayTypeDesc__m_TemplateMT - 2]
+
+        FIX_INDIRECTION r9
+ 
         ; In this case we know the element size is sizeof(void *), or 8 for x64
         ; This helps us in two ways - we can shift instead of multiplying, and
         ; there's no need to align the size either
 
-        mov     r8d, dword ptr [rcx + OFFSET__MethodTable__m_BaseSize]
+        mov     r8d, dword ptr [r9 + OFFSET__MethodTable__m_BaseSize]
         lea     r8d, [r8d + edx * 8]
 
         ; No need for rounding in this case - element size is 8, and m_BaseSize is guaranteed
@@ -427,7 +448,7 @@ NESTED_ENTRY JIT_NewArr1OBJ_MP, _TEXT
         ja      AllocFailed
 
         mov     [r11 + OFFSET__Thread__m_alloc_context__alloc_ptr], r8
-        mov     [rax], rcx
+        mov     [rax], r9
 
         mov     dword ptr [rax + OFFSETOF__ArrayBase__m_NumComponents], edx
 
@@ -605,10 +626,11 @@ endif ; _DEBUG
         jmp     FramedAllocateString
 LEAF_END AllocateStringFastUP, _TEXT
 
-; HCIMPL2(Object*, JIT_NewArr1VC_UP, CORINFO_CLASS_HANDLE arrayMT, INT_PTR size)
+; HCIMPL2(Object*, JIT_NewArr1, CORINFO_CLASS_HANDLE arrayTypeHnd_, INT_PTR size)
 LEAF_ENTRY JIT_NewArr1VC_UP, _TEXT
 
-        ; We were passed a (shared) method table in RCX, which contains the element type.
+        ; We were passed a type descriptor in RCX, which contains the (shared)
+        ; array method table and the element type.
 
         ; The element count is in RDX
 
@@ -625,12 +647,17 @@ LEAF_ENTRY JIT_NewArr1VC_UP, _TEXT
 
         ; In both cases we do a final overflow check after adding to the alloc_ptr.
 
+        ; we need to load the true method table from the type desc
+        mov     r9, [rcx + OFFSETOF__ArrayTypeDesc__m_TemplateMT - 2]
+
+        FIX_INDIRECTION r9
+        
         cmp     rdx, (65535 - 256)
         jae     JIT_NewArr1
   
-        movzx   r8d, word ptr [rcx + OFFSETOF__MethodTable__m_dwFlags]  ; component size is low 16 bits
+        movzx   r8d, word ptr [r9 + OFFSETOF__MethodTable__m_dwFlags]  ; component size is low 16 bits
         imul    r8d, edx  ; signed mul, but won't overflow due to length restriction above
-        add     r8d, dword ptr [rcx + OFFSET__MethodTable__m_BaseSize]
+        add     r8d, dword ptr [r9 + OFFSET__MethodTable__m_BaseSize]
 
         ; round the size to a multiple of 8
 
@@ -650,7 +677,7 @@ LEAF_ENTRY JIT_NewArr1VC_UP, _TEXT
         ja      AllocFailed
 
         mov     qword ptr [g_global_alloc_context + OFFSETOF__gc_alloc_context__alloc_ptr], r8     ; update the alloc ptr
-        mov     [rax], rcx
+        mov     [rax], r9
         mov     [g_global_alloc_lock], -1
 
         mov     dword ptr [rax + OFFSETOF__ArrayBase__m_NumComponents], edx
@@ -667,10 +694,11 @@ endif ; _DEBUG
 LEAF_END JIT_NewArr1VC_UP, _TEXT
 
 
-; HCIMPL2(Object*, JIT_NewArr1OBJ_UP, CORINFO_CLASS_HANDLE arrayMT, INT_PTR size)
+; HCIMPL2(Object*, JIT_NewArr1, CORINFO_CLASS_HANDLE arrayTypeHnd_, INT_PTR size)
 LEAF_ENTRY JIT_NewArr1OBJ_UP, _TEXT
 
-        ; We were passed a (shared) method table in RCX, which contains the element type.
+        ; We were passed a type descriptor in RCX, which contains the (shared)
+        ; array method table and the element type.
 
         ; The element count is in RDX
 
@@ -684,11 +712,16 @@ LEAF_ENTRY JIT_NewArr1OBJ_UP, _TEXT
         cmp     rdx, (ASM_LARGE_OBJECT_SIZE - 256)/8 ; sizeof(void*)
         jae     OversizedArray
 
+        ; we need to load the true method table from the type desc
+        mov     r9, [rcx + OFFSETOF__ArrayTypeDesc__m_TemplateMT - 2]
+
+        FIX_INDIRECTION r9
+
         ; In this case we know the element size is sizeof(void *), or 8 for x64
         ; This helps us in two ways - we can shift instead of multiplying, and
         ; there's no need to align the size either
 
-        mov     r8d, dword ptr [rcx + OFFSET__MethodTable__m_BaseSize]
+        mov     r8d, dword ptr [r9 + OFFSET__MethodTable__m_BaseSize]
         lea     r8d, [r8d + edx * 8]
 
         ; No need for rounding in this case - element size is 8, and m_BaseSize is guaranteed
@@ -706,7 +739,7 @@ LEAF_ENTRY JIT_NewArr1OBJ_UP, _TEXT
         ja      AllocFailed
 
         mov     qword ptr [g_global_alloc_context + OFFSETOF__gc_alloc_context__alloc_ptr], r8     ; update the alloc ptr
-        mov     [rax], rcx
+        mov     [rax], r9
         mov     [g_global_alloc_lock], -1
 
         mov     dword ptr [rax + OFFSETOF__ArrayBase__m_NumComponents], edx

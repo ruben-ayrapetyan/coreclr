@@ -6070,12 +6070,13 @@ void Interpreter::NewArr()
         }
 #endif
 
-        MethodTable *pArrayMT = (MethodTable *) elemClsHnd;
+        TypeHandle typeHnd(elemClsHnd);
+        ArrayTypeDesc* pArrayClassRef = typeHnd.AsArray();
 
-        pArrayMT->CheckRunClassInitThrowing();
+        pArrayClassRef->GetMethodTable()->CheckRunClassInitThrowing();
 
         INT32 size32 = (INT32)sz;
-        Object* newarray = OBJECTREFToObject(AllocateArrayEx(pArrayMT, &size32, 1));
+        Object* newarray = OBJECTREFToObject(AllocateArrayEx(typeHnd, &size32, 1));
 
         GCX_FORBID();
         OpStackTypeSet(stkInd, InterpreterType(CORINFO_TYPE_CLASS));
