@@ -2806,7 +2806,8 @@ public:
     static void RestoreMethodDescPointer(RelativeFixupPointer<PTR_MethodDesc> * ppMD,
                                          Module *pContainingModule = NULL,
                                          ClassLoadLevel level = CLASS_LOADED);
-    static void RestoreFieldDescPointer(RelativeFixupPointer<PTR_FieldDesc> * ppFD);
+
+    static void RestoreFieldDescPointer(FixupPointer<PTR_FieldDesc> * ppFD);
 
     static void RestoreModulePointer(RelativeFixupPointer<PTR_Module> * ppModule, Module *pContainingModule);
 

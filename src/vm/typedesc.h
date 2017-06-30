@@ -254,7 +254,7 @@ public:
 
         LIMITED_METHOD_CONTRACT;
 
-        m_TemplateMT.SetValueMaybeNull(pMT);
+        m_TemplateMT.SetValue(pMT);
 
         // ParamTypeDescs start out life not fully loaded
         m_typeAndFlags |= TypeDesc::enum_flag_IsNotFullyLoaded;
@@ -323,13 +323,8 @@ public:
     friend class ArrayOpLinker;
 #endif
 protected:
-    PTR_MethodTable GetTemplateMethodTableInternal() {
-        WRAPPER_NO_CONTRACT;
-        return ReadPointerMaybeNull(this, &ParamTypeDesc::m_TemplateMT);
-    }
-
     // the m_typeAndFlags field in TypeDesc tell what kind of parameterized type we have
-    RelativeFixupPointer<PTR_MethodTable> m_TemplateMT; // The shared method table, some variants do not use this field (it is null)
+    FixupPointer<PTR_MethodTable> m_TemplateMT; // The shared method table, some variants do not use this field (it is null)
     TypeHandle      m_Arg;              // The type that is being modified
     LOADERHANDLE    m_hExposedClassObject;  // handle back to the internal reflection Type object
 };
@@ -385,8 +380,8 @@ public:
         WRAPPER_NO_CONTRACT;
 
         _ASSERTE(!m_TemplateMT.IsNull());
-        _ASSERTE(GetTemplateMethodTableInternal()->IsArray());
-        _ASSERTE(GetTemplateMethodTableInternal()->ParentEquals(g_pArrayClass));
+        _ASSERTE(m_TemplateMT.GetValue()->IsArray());
+        _ASSERTE(m_TemplateMT.GetValue()->ParentEquals(g_pArrayClass));
 
         return g_pArrayClass;
     }
@@ -421,16 +416,16 @@ public:
     void Fixup(DataImage *image);
 #endif
 
-    PTR_MethodTable GetTemplateMethodTable() {
+    MethodTable * GetTemplateMethodTable() {
         WRAPPER_NO_CONTRACT;
-        PTR_MethodTable ptrTemplateMT = GetTemplateMethodTableInternal();
-        _ASSERTE(ptrTemplateMT->IsArray());
-        return ptrTemplateMT;
+        MethodTable * pTemplateMT = m_TemplateMT.GetValue();
+        _ASSERTE(pTemplateMT->IsArray());
+        return pTemplateMT;
     }
 
     TADDR GetTemplateMethodTableMaybeTagged() {
         WRAPPER_NO_CONTRACT;
-        return m_TemplateMT.GetValueMaybeTagged(dac_cast<TADDR>(this) + offsetof(ArrayTypeDesc, m_TemplateMT));
+        return m_TemplateMT.GetValueMaybeTagged();
     }
 
 #ifdef FEATURE_COMINTEROP

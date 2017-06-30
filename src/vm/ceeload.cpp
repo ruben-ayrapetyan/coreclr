@@ -10549,7 +10549,7 @@ void Module::RestoreMethodDescPointer(RelativeFixupPointer<PTR_MethodDesc> * ppM
 }
 
 /*static*/
-void Module::RestoreFieldDescPointer(RelativeFixupPointer<PTR_FieldDesc> * ppFD)
+void Module::RestoreFieldDescPointer(FixupPointer<PTR_FieldDesc> * ppFD)
 {
     CONTRACTL
     {
@@ -10558,9 +10558,6 @@ void Module::RestoreFieldDescPointer(RelativeFixupPointer<PTR_FieldDesc> * ppFD)
         MODE_ANY;
     }
     CONTRACTL_END;
-
-    if (!ppFD->IsTagged())
-        return;
 
     PTR_FieldDesc * ppValue = ppFD->GetValuePtr();
 
@@ -10573,7 +10570,7 @@ void Module::RestoreFieldDescPointer(RelativeFixupPointer<PTR_FieldDesc> * ppFD)
         CONSISTENCY_CHECK((CORCOMPILE_UNTAG_TOKEN(fixup)>>32) == 0);
 #endif
 
-        Module * pContainingModule = ExecutionManager::FindZapModule((TADDR)ppValue);
+        Module * pContainingModule = ExecutionManager::FindZapModule(dac_cast<TADDR>(ppValue));
         PREFIX_ASSUME(pContainingModule != NULL);
 
         RVA fixupRva = (RVA) CORCOMPILE_UNTAG_TOKEN(fixup);
