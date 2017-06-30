@@ -3260,6 +3260,14 @@ public:
         else
             return NULL;
     }
+    
+    MethodDesc* IMD_GetWrappedMethodDesc()
+    {
+        LIMITED_METHOD_CONTRACT;
+
+        _ASSERTE(IMD_IsWrapperStubWithInstantiations());
+        return m_pWrappedMethodDesc.GetValue();
+    }
 
     // Setup the IMD as shared code
     void SetupSharedMethodInstantiation(DWORD numGenericArgs, TypeHandle *pPerInstInfo, DictionaryLayout *pDL);
