@@ -109,7 +109,6 @@ class LoaderAllocator;
 class ComCallWrapperTemplate;
 
 typedef DPTR(DictionaryLayout) PTR_DictionaryLayout;
-typedef DPTR(FieldMarshaler) PTR_FieldMarshaler;
 
 
 //---------------------------------------------------------------------------------
@@ -440,7 +439,7 @@ class EEClassLayoutInfo
         // An array of FieldMarshaler data blocks, used to drive call-time
         // marshaling of NStruct reference parameters. The number of elements
         // equals m_numCTMFields.
-        RelativePointer<PTR_FieldMarshaler> m_pFieldMarshalers;
+        FieldMarshaler *m_pFieldMarshalers;
 
 
     public:
@@ -469,19 +468,11 @@ class EEClassLayoutInfo
             return m_numCTMFields;
         }
 
-        PTR_FieldMarshaler GetFieldMarshalers() const
+        FieldMarshaler *GetFieldMarshalers() const
         {
             LIMITED_METHOD_CONTRACT;
-            return ReadPointerMaybeNull(this, &EEClassLayoutInfo::m_pFieldMarshalers);
+            return m_pFieldMarshalers;
         }
-
-#ifndef DACCESS_COMPILE
-        void SetFieldMarshalers(FieldMarshaler *pFieldMarshallers)
-        {
-            LIMITED_METHOD_CONTRACT;
-            m_pFieldMarshalers.SetValueMaybeNull(pFieldMarshallers);
-        }
-#endif // DACCESS_COMPILE
 
         BOOL IsBlittable() const
         {
