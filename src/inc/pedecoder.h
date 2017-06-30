@@ -187,8 +187,6 @@ class PEDecoder
 
     DWORD GetImageIdentity() const;
 
-    BOOL HasWriteableSections() const;
-
     // Directory entry access
 
     BOOL HasDirectoryEntry(int entry) const;
