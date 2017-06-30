@@ -2175,7 +2175,7 @@ class StoredSigMethodDesc : public MethodDesc
     // Put the sig RVA in here - this allows us to avoid
     // touching the method desc table when mscorlib is prejitted.
 
-    RelativePointer<TADDR>           m_pSig;
+    TADDR           m_pSig;
     DWORD           m_cSig;
 #ifdef _WIN64 
     // m_dwExtendedFlags is not used by StoredSigMethodDesc itself.
@@ -2184,16 +2184,10 @@ class StoredSigMethodDesc : public MethodDesc
     DWORD           m_dwExtendedFlags;
 #endif
 
-    TADDR GetSigRVA()
-    {
-        LIMITED_METHOD_DAC_CONTRACT;
-        return RelativePointer<TADDR>::GetValueMaybeNullAtPtr(PTR_HOST_MEMBER_TADDR(StoredSigMethodDesc, this, m_pSig));
-    }
-
     bool HasStoredMethodSig(void)
     {
         LIMITED_METHOD_DAC_CONTRACT;
-        return !m_pSig.IsNull();
+        return m_pSig != 0;
     }
     PCCOR_SIGNATURE GetStoredMethodSig(DWORD* sigLen = NULL)
     {
@@ -2204,16 +2198,16 @@ class StoredSigMethodDesc : public MethodDesc
         }
 #ifdef DACCESS_COMPILE 
         return (PCCOR_SIGNATURE)
-            DacInstantiateTypeByAddress(GetSigRVA(), m_cSig, true);
+            DacInstantiateTypeByAddress(m_pSig, m_cSig, true);
 #else // !DACCESS_COMPILE
         g_IBCLogger.LogNDirectCodeAccess(this);
-        return (PCCOR_SIGNATURE) m_pSig.GetValueMaybeNull();
+        return (PCCOR_SIGNATURE)m_pSig;
 #endif // !DACCESS_COMPILE
     }
     void SetStoredMethodSig(PCCOR_SIGNATURE sig, DWORD sigBytes)
     {
 #ifndef DACCESS_COMPILE 
-        m_pSig.SetValueMaybeNull((TADDR)sig);
+        m_pSig = (TADDR)sig;
         m_cSig = sigBytes;
 #endif // !DACCESS_COMPILE
     }
@@ -2273,7 +2267,7 @@ class DynamicMethodDesc : public StoredSigMethodDesc
 #endif
 
 protected:
-    RelativePointer<PTR_CUTF8>           m_pszMethodName;
+    PTR_CUTF8           m_pszMethodName;
     PTR_DynamicResolver m_pResolver;
 
 #ifndef _WIN64
@@ -2314,11 +2308,7 @@ public:
     inline PTR_LCGMethodResolver  GetLCGMethodResolver();
     inline PTR_ILStubResolver     GetILStubResolver();
 
-    PTR_CUTF8 GetMethodName()
-    {
-        LIMITED_METHOD_DAC_CONTRACT;
-        return RelativePointer<PTR_CUTF8>::GetValueMaybeNullAtPtr(PTR_HOST_MEMBER_TADDR(DynamicMethodDesc, this, m_pszMethodName));
-    }
+    PTR_CUTF8 GetMethodName() { LIMITED_METHOD_DAC_CONTRACT; return m_pszMethodName; }
 
     WORD GetAttrs()
     {
@@ -2543,11 +2533,11 @@ public:
         LPVOID      m_pNativeNDirectTarget;
             
         // Information about the entrypoint
-        RelativePointer<PTR_CUTF8>     m_pszEntrypointName;
+        LPCUTF8     m_pszEntrypointName;
 
         union
         {
-            RelativePointer<PTR_CUTF8>     m_pszLibName;
+            LPCUTF8     m_pszLibName;
             DWORD       m_dwECallID;    // ECallID for QCalls
         };
 
@@ -2555,7 +2545,7 @@ public:
         PTR_NDirectWriteableData    m_pWriteableData;
 
 #ifdef HAS_NDIRECT_IMPORT_PRECODE
-        RelativePointer<PTR_NDirectImportThunkGlue> m_pImportThunkGlue;
+        PTR_NDirectImportThunkGlue  m_pImportThunkGlue;        
 #else // HAS_NDIRECT_IMPORT_PRECODE
         NDirectImportThunkGlue      m_ImportThunkGlue;
 #endif // HAS_NDIRECT_IMPORT_PRECODE
@@ -2678,27 +2668,18 @@ public:
         ndirect.m_dwECallID = dwID;
     }
 
-    PTR_CUTF8 GetLibNameRaw()
-    {
-        LIMITED_METHOD_DAC_CONTRACT;
-
-        return RelativePointer<PTR_CUTF8>::GetValueMaybeNullAtPtr(PTR_HOST_MEMBER_TADDR(NDirectMethodDesc, this, ndirect.m_pszLibName));
-    }
-
-#ifndef DACCESS_COMPILE
     LPCUTF8 GetLibName() const
     {
         LIMITED_METHOD_CONTRACT;
 
-        return IsQCall() ? "QCall" : ndirect.m_pszLibName.GetValueMaybeNull();
+        return IsQCall() ? "QCall" : ndirect.m_pszLibName;
     }
-#endif // !DACCESS_COMPILE
 
-    PTR_CUTF8 GetEntrypointName() const
+    LPCUTF8 GetEntrypointName() const
     {
-        LIMITED_METHOD_DAC_CONTRACT;
+        LIMITED_METHOD_CONTRACT;
 
-        return RelativePointer<PTR_CUTF8>::GetValueMaybeNullAtPtr(PTR_HOST_MEMBER_TADDR(NDirectMethodDesc, this, ndirect.m_pszEntrypointName));
+        return ndirect.m_pszEntrypointName;
     }
 
     BOOL IsVarArgs() const
@@ -2781,16 +2762,14 @@ public:
         return ndirect.m_pWriteableData;
     }
 
-    PTR_NDirectImportThunkGlue GetNDirectImportThunkGlue()
+    NDirectImportThunkGlue* GetNDirectImportThunkGlue()
     {
-        LIMITED_METHOD_DAC_CONTRACT;
-
-        TADDR base = PTR_HOST_MEMBER_TADDR(NDirectMethodDesc, this, ndirect.m_pImportThunkGlue);
+        LIMITED_METHOD_CONTRACT;
 
 #ifdef HAS_NDIRECT_IMPORT_PRECODE
-        return RelativePointer<PTR_NDirectImportThunkGlue>::GetValueAtPtr(base);
+        return ndirect.m_pImportThunkGlue;
 #else
-        return dac_cast<PTR_NDirectImportThunkGlue>(base);
+        return &ndirect.m_ImportThunkGlue;
 #endif
     }
 
@@ -3264,37 +3243,18 @@ public:
     }
 #endif // FEATURE_COMINTEROP
 
-    PTR_DictionaryLayout GetDictLayoutRaw()
-    {
-        LIMITED_METHOD_DAC_CONTRACT;
-        return RelativePointer<PTR_DictionaryLayout>::GetValueMaybeNullAtPtr(PTR_HOST_MEMBER_TADDR(InstantiatedMethodDesc, this, m_pDictLayout));
-    }
-
-    PTR_MethodDesc IMD_GetWrappedMethodDesc()
-    {
-        LIMITED_METHOD_DAC_CONTRACT;
-
-        _ASSERTE(IMD_IsWrapperStubWithInstantiations());
-        return RelativeFixupPointer<PTR_MethodDesc>::GetValueAtPtr(PTR_HOST_MEMBER_TADDR(InstantiatedMethodDesc, this, m_pWrappedMethodDesc));
-    }
-
-#ifndef DACCESS_COMPILE
     // Get the dictionary layout, if there is one
     DictionaryLayout* IMD_GetDictionaryLayout()
     {
         WRAPPER_NO_CONTRACT;
         if (IMD_IsWrapperStubWithInstantiations() && IMD_HasMethodInstantiation())
-        {
-            InstantiatedMethodDesc* pIMD = IMD_GetWrappedMethodDesc()->AsInstantiatedMethodDesc();
-            return pIMD->m_pDictLayout.GetValueMaybeNull();
-        }
+            return IMD_GetWrappedMethodDesc()->AsInstantiatedMethodDesc()->m_pDictLayout;
         else
         if (IMD_IsSharedByGenericMethodInstantiations())
-            return m_pDictLayout.GetValueMaybeNull();
+            return m_pDictLayout;
         else
             return NULL;
     }
-#endif // !DACCESS_COMPILE
 
     // Setup the IMD as shared code
     void SetupSharedMethodInstantiation(DWORD numGenericArgs, TypeHandle *pPerInstInfo, DictionaryLayout *pDL);
@@ -3341,9 +3301,9 @@ private:
 
     friend class MethodDesc; // this fields are currently accessed by MethodDesc::Save/Restore etc.
     union {
-        RelativePointer<PTR_DictionaryLayout> m_pDictLayout; //SharedMethodInstantiation
+        DictionaryLayout * m_pDictLayout; //SharedMethodInstantiation
 
-        RelativeFixupPointer<PTR_MethodDesc> m_pWrappedMethodDesc; // For WrapperStubWithInstantiations
+        FixupPointer<PTR_MethodDesc> m_pWrappedMethodDesc; // For WrapperStubWithInstantiations
     };
 
 public: // <TODO>make private: JITinterface.cpp accesses through this </TODO>
