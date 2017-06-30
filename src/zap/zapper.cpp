@@ -278,7 +278,8 @@ ZapperOptions::ZapperOptions() :
   m_legacyMode(false)
   ,m_fNoMetaData(s_fNGenNoMetaData)
 {
-    SetCompilerFlags();
+    m_compilerFlags.Set(CORJIT_FLAGS::CORJIT_FLAG_RELOC);
+    m_compilerFlags.Set(CORJIT_FLAGS::CORJIT_FLAG_PREJIT);
 
     m_zapSet = CLRConfig::GetConfigValue(CLRConfig::EXTERNAL_ZapSet);
     if (m_zapSet != NULL && wcslen(m_zapSet) > 3)
@@ -316,18 +317,6 @@ ZapperOptions::~ZapperOptions()
 
     if (m_repositoryDir != NULL)
         delete [] m_repositoryDir;
-}
-
-void ZapperOptions::SetCompilerFlags(void)
-{
-    m_compilerFlags.Set(CORJIT_FLAGS::CORJIT_FLAG_RELOC);
-    m_compilerFlags.Set(CORJIT_FLAGS::CORJIT_FLAG_PREJIT);
-
-#if defined(_TARGET_ARM_)
-# if defined(PLATFORM_UNIX)
-    m_compilerFlags.Set(CORJIT_FLAGS::CORJIT_FLAG_RELATIVE_CODE_RELOCS);
-# endif // defined(PLATFORM_UNIX)
-#endif // defined(_TARGET_ARM_)
 }
 
 /* --------------------------------------------------------------------------- *
@@ -381,7 +370,8 @@ Zapper::Zapper(NGenOptions *pOptions, bool fromDllHost)
     pOptions = &currentVersionOptions;
 
     zo->m_compilerFlags.Reset();
-    zo->SetCompilerFlags();
+    zo->m_compilerFlags.Set(CORJIT_FLAGS::CORJIT_FLAG_RELOC);
+    zo->m_compilerFlags.Set(CORJIT_FLAGS::CORJIT_FLAG_PREJIT);
     zo->m_autodebug = true;
 
     if (pOptions->fDebug)
