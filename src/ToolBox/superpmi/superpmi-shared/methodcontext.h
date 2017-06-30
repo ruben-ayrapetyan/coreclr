@@ -216,7 +216,6 @@ public:
         DWORD     testForNull;
         DWORD     testForFixup;
         DWORDLONG offsets[CORINFO_MAXINDIRECTIONS];
-        DWORD     indirectFirstOffset;
     };
     struct Agnostic_CORINFO_LOOKUP
     {

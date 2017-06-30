@@ -7879,7 +7879,7 @@ void NativeImageDumper::DumpMethodDesc( PTR_MethodDesc md, PTR_Module module )
         if( !CHECK_OPT(METHODDESCS) )
             CoverageReadString( dac_cast<TADDR>(ndmd->GetLibNameRaw()) );
 
-        PTR_NDirectWriteableData wnd( ndmd->GetWriteableData() );
+        PTR_NDirectWriteableData wnd( nd->m_pWriteableData );
         DisplayStartStructureWithOffset( m_pWriteableData,
                                          DPtrToPreferredAddr(wnd),
                                          sizeof(*wnd),
@@ -8035,7 +8035,7 @@ void NativeImageDumper::DumpMethodDesc( PTR_MethodDesc md, PTR_Module module )
         }
         //now handle the contents of the m_pMethInst/m_pPerInstInfo union.
         unsigned numSlots = imd->m_wNumGenericArgs;
-        PTR_Dictionary inst(imd->IMD_GetMethodDictionary());
+        PTR_Dictionary inst(imd->m_pPerInstInfo);
         unsigned dictSize;
         if( kind == InstantiatedMethodDesc::SharedMethodInstantiation )
         {

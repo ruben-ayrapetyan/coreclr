@@ -1490,9 +1490,9 @@ void InstantiatedMethodDesc::SetupGenericMethodDefinition(IMDInternalImport *pIM
     S_SIZE_T dwAllocSize = S_SIZE_T(numTyPars) * S_SIZE_T(sizeof(TypeHandle));
 
     // the memory allocated for m_pMethInst will be freed if the declaring type fails to load
-    m_pPerInstInfo.SetValue((Dictionary *) pamTracker->Track(pAllocator->GetLowFrequencyHeap()->AllocMem(dwAllocSize)));
+    m_pPerInstInfo = (Dictionary *) pamTracker->Track(pAllocator->GetLowFrequencyHeap()->AllocMem(dwAllocSize));
 
-    TypeHandle * pInstDest = (TypeHandle *) IMD_GetMethodDictionaryNonNull();
+    TypeHandle * pInstDest = (TypeHandle *)m_pPerInstInfo;
     for(unsigned int i = 0; i < numTyPars; i++)
     {
         hEnumTyPars.EnumNext(&tkTyPar);
@@ -1525,7 +1525,7 @@ void InstantiatedMethodDesc::SetupWrapperStubWithInstantiations(MethodDesc* wrap
 
     m_pWrappedMethodDesc.SetValue(wrappedMD);
     m_wFlags2 = WrapperStubWithInstantiations | (m_wFlags2 & ~KindMask);
-    m_pPerInstInfo.SetValueMaybeNull((Dictionary*)pInst);
+    m_pPerInstInfo = (Dictionary*)pInst;
 
     _ASSERTE(FitsIn<WORD>(numGenericArgs));
     m_wNumGenericArgs = static_cast<WORD>(numGenericArgs);
@@ -1543,7 +1543,7 @@ void InstantiatedMethodDesc::SetupSharedMethodInstantiation(DWORD numGenericArgs
     _ASSERTE(numGenericArgs != 0);
     // Initially the dictionary layout is empty
     m_wFlags2 = SharedMethodInstantiation | (m_wFlags2 & ~KindMask);
-    m_pPerInstInfo.SetValueMaybeNull((Dictionary *)pPerInstInfo);
+    m_pPerInstInfo = (Dictionary *)pPerInstInfo;
 
     _ASSERTE(FitsIn<WORD>(numGenericArgs));
     m_wNumGenericArgs = static_cast<WORD>(numGenericArgs);
@@ -1561,7 +1561,7 @@ void InstantiatedMethodDesc::SetupUnsharedMethodInstantiation(DWORD numGenericAr
 
     // The first field is never used
     m_wFlags2 = UnsharedMethodInstantiation | (m_wFlags2 & ~KindMask);
-    m_pPerInstInfo.SetValueMaybeNull((Dictionary *)pInst);
+    m_pPerInstInfo = (Dictionary *)pInst;
 
     _ASSERTE(FitsIn<WORD>(numGenericArgs));
     m_wNumGenericArgs = static_cast<WORD>(numGenericArgs);
