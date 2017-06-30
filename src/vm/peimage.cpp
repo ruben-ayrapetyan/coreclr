@@ -1096,7 +1096,6 @@ void PEImage::Load()
 {
     STANDARD_VM_CONTRACT;
 
-    // Performance optimization to avoid lock acquisition
     if (HasLoadedLayout())
     {
         _ASSERTE(GetLoadedLayout()->IsMapped()||GetLoadedLayout()->IsILOnly());
@@ -1105,12 +1104,7 @@ void PEImage::Load()
 
     SimpleWriteLockHolder lock(m_pLayoutLock);
 
-    // Re-check after lock is acquired as HasLoadedLayout here and the above line
-    // may return a different value in multi-threading environment.
-    if (HasLoadedLayout())
-    {
-        return;
-    }
+    _ASSERTE(m_pLayouts[IMAGE_LOADED] == NULL);
 
 #ifdef PLATFORM_UNIX
     if (m_pLayouts[IMAGE_FLAT] != NULL
