@@ -439,31 +439,11 @@ void ThrowOutOfMemoryDimensionsExceeded()
 //
 // Handles arrays of arbitrary dimensions
 //
-// This is wrapper overload to handle TypeHandle arrayType
-//
-OBJECTREF AllocateArrayEx(TypeHandle arrayType, INT32 *pArgs, DWORD dwNumArgs, BOOL bAllocateInLargeHeap
-                          DEBUG_ARG(BOOL bDontSetAppDomain))
-{
-    CONTRACTL
-    {
-        WRAPPER_NO_CONTRACT;
-    } CONTRACTL_END;
-
-    ArrayTypeDesc* arrayDesc = arrayType.AsArray();
-    MethodTable* pArrayMT = arrayDesc->GetMethodTable();
-
-    return AllocateArrayEx(pArrayMT, pArgs, dwNumArgs, bAllocateInLargeHeap
-                           DEBUG_ARG(bDontSetAppDomain));
-}
-
-//
-// Handles arrays of arbitrary dimensions
-//
 // If dwNumArgs is set to greater than 1 for a SZARRAY this function will recursively 
 // allocate sub-arrays and fill them in.  
 //
 // For arrays with lower bounds, pBounds is <lower bound 1>, <count 1>, <lower bound 2>, ...
-OBJECTREF AllocateArrayEx(MethodTable *pArrayMT, INT32 *pArgs, DWORD dwNumArgs, BOOL bAllocateInLargeHeap
+OBJECTREF AllocateArrayEx(TypeHandle arrayType, INT32 *pArgs, DWORD dwNumArgs, BOOL bAllocateInLargeHeap 
                           DEBUG_ARG(BOOL bDontSetAppDomain))
 {
     CONTRACTL {
@@ -484,12 +464,14 @@ OBJECTREF AllocateArrayEx(MethodTable *pArrayMT, INT32 *pArgs, DWORD dwNumArgs, 
     }
 #endif
 
-   _ASSERTE(pArrayMT->CheckInstanceActivated());
+    ArrayTypeDesc* arrayDesc = arrayType.AsArray();
+    MethodTable* pArrayMT = arrayDesc->GetMethodTable();
+    _ASSERTE(pArrayMT->CheckInstanceActivated());
     PREFIX_ASSUME(pArrayMT != NULL);
-    CorElementType kind = pArrayMT->GetInternalCorElementType();
+    CorElementType kind = arrayType.GetInternalCorElementType();
     _ASSERTE(kind == ELEMENT_TYPE_ARRAY || kind == ELEMENT_TYPE_SZARRAY);
     
-    CorElementType elemType = pArrayMT->GetArrayElementType();
+    CorElementType elemType = arrayDesc->GetTypeParam().GetInternalCorElementType();
     // Disallow the creation of void[,] (a multi-dim  array of System.Void)
     if (elemType == ELEMENT_TYPE_VOID)
         COMPlusThrow(kArgumentException);
@@ -499,7 +481,7 @@ OBJECTREF AllocateArrayEx(MethodTable *pArrayMT, INT32 *pArgs, DWORD dwNumArgs, 
 
     // IBC Log MethodTable access
     g_IBCLogger.LogMethodTableAccess(pArrayMT);
-    SetTypeHandleOnThreadForAlloc(TypeHandle(pArrayMT));
+    SetTypeHandleOnThreadForAlloc(arrayType);
 
     SIZE_T componentSize = pArrayMT->GetComponentSize();
     bool maxArrayDimensionLengthOverflow = false;
@@ -507,7 +489,7 @@ OBJECTREF AllocateArrayEx(MethodTable *pArrayMT, INT32 *pArgs, DWORD dwNumArgs, 
 
     if (kind == ELEMENT_TYPE_ARRAY)
     {
-        unsigned rank = pArrayMT->GetRank();
+        unsigned rank = arrayDesc->GetRank();
         _ASSERTE(dwNumArgs == rank || dwNumArgs == 2*rank);
 
         // Morph a ARRAY rank 1 with 0 lower bound into an SZARRAY
@@ -516,7 +498,7 @@ OBJECTREF AllocateArrayEx(MethodTable *pArrayMT, INT32 *pArgs, DWORD dwNumArgs, 
 
             // This recursive call doesn't go any farther, because the dwNumArgs will be 1,
             //  so don't bother with stack probe.
-            TypeHandle szArrayType = ClassLoader::LoadArrayTypeThrowing(pArrayMT->GetApproxArrayElementTypeHandle(), ELEMENT_TYPE_SZARRAY, 1);
+            TypeHandle szArrayType = ClassLoader::LoadArrayTypeThrowing(arrayDesc->GetArrayElementTypeHandle(), ELEMENT_TYPE_SZARRAY, 1);
             return AllocateArrayEx(szArrayType, &pArgs[dwNumArgs - 1], 1, bAllocateInLargeHeap DEBUG_ARG(bDontSetAppDomain));
         }
 
@@ -579,12 +561,12 @@ OBJECTREF AllocateArrayEx(MethodTable *pArrayMT, INT32 *pArgs, DWORD dwNumArgs, 
     if (bAllocateInLargeHeap)
     {
         orArray = (ArrayBase *) AllocLHeap(totalSize, FALSE, pArrayMT->ContainsPointers());
-        orArray->SetArrayMethodTableForLargeObject(pArrayMT);
+        orArray->SetMethodTableForLargeObject(pArrayMT);
     }
     else
     {
 #ifdef FEATURE_64BIT_ALIGNMENT
-        MethodTable *pElementMT = pArrayMT->GetApproxArrayElementTypeHandle().GetMethodTable();
+        MethodTable *pElementMT = arrayDesc->GetTypeParam().GetMethodTable();
         if (pElementMT->RequiresAlign8() && pElementMT->IsValueType())
         {
             // This platform requires that certain fields are 8-byte aligned (and the runtime doesn't provide
@@ -600,7 +582,7 @@ OBJECTREF AllocateArrayEx(MethodTable *pArrayMT, INT32 *pArgs, DWORD dwNumArgs, 
         {
             orArray = (ArrayBase *) Alloc(totalSize, FALSE, pArrayMT->ContainsPointers());
         }
-        orArray->SetArrayMethodTable(pArrayMT);
+        orArray->SetMethodTable(pArrayMT);
     }
 
     // Initialize Object
@@ -673,7 +655,7 @@ OBJECTREF AllocateArrayEx(MethodTable *pArrayMT, INT32 *pArgs, DWORD dwNumArgs, 
                 GCStressPolicy::InhibitHolder iholder;
                 
                 // Allocate dwProvidedBounds arrays
-                if (!pArrayMT->GetApproxArrayElementTypeHandle().IsArray())
+                if (!arrayDesc->GetArrayElementTypeHandle().IsArray())
                 {
                     orArray = NULL;
                 }
@@ -684,7 +666,7 @@ OBJECTREF AllocateArrayEx(MethodTable *pArrayMT, INT32 *pArgs, DWORD dwNumArgs, 
                     _ASSERTE(GetThread());
                     INTERIOR_STACK_PROBE(GetThread());
 
-                    TypeHandle subArrayType = pArrayMT->GetApproxArrayElementTypeHandle();
+                    TypeHandle subArrayType = arrayDesc->GetArrayElementTypeHandle();
                     for (UINT32 i = 0; i < cElements; i++)
                     {
                         OBJECTREF obj = AllocateArrayEx(subArrayType, &pArgs[1], dwNumArgs-1, bAllocateInLargeHeap DEBUG_ARG(bDontSetAppDomain));
@@ -827,7 +809,7 @@ OBJECTREF   FastAllocatePrimitiveArray(MethodTable* pMT, DWORD cElements, BOOL b
     }
 
     // Initialize Object
-    orObject->SetArrayMethodTable( pMT );
+    orObject->SetMethodTable( pMT );
     _ASSERTE(orObject->GetMethodTable() != NULL);
     orObject->m_NumComponents = cElements;
 
@@ -949,7 +931,7 @@ OBJECTREF AllocateObjectArray(DWORD cElements, TypeHandle ElementType)
     Thread::DisableSOCheckInHCALL disableSOCheckInHCALL;
 #endif  // FEATURE_STACK_PROBE
 #endif  // _DEBUG
-    return OBJECTREF( HCCALL2(fastObjectArrayAllocator, ArrayType.AsArray()->GetTemplateMethodTable(), cElements));
+    return OBJECTREF( HCCALL2(fastObjectArrayAllocator, ArrayType.AsPtr(), cElements));
 }
 
 STRINGREF AllocateString( DWORD cchStringLength )

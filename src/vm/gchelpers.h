@@ -22,8 +22,6 @@
 
 OBJECTREF AllocateValueSzArray(TypeHandle elementType, INT32 length);
     // The main Array allocation routine, can do multi-dimensional
-OBJECTREF AllocateArrayEx(MethodTable *pArrayMT, INT32 *pArgs, DWORD dwNumArgs, BOOL bAllocateInLargeHeap = FALSE
-                          DEBUG_ARG(BOOL bDontSetAppDomain = FALSE));
 OBJECTREF AllocateArrayEx(TypeHandle arrayClass, INT32 *pArgs, DWORD dwNumArgs, BOOL bAllocateInLargeHeap = FALSE
                           DEBUG_ARG(BOOL bDontSetAppDomain = FALSE));
     // Optimized verion of above
@@ -49,8 +47,10 @@ OBJECTREF AllocatePrimitiveArray(CorElementType type, DWORD cElements);
 OBJECTREF AllocatePrimitiveArray(CorElementType type, DWORD cElements, BOOL bAllocateInLargeHeap);
 
 
-// Allocate SD array of object pointers.
-typedef HCCALL2_PTR(Object*, FastObjectArrayAllocatorFuncPtr, MethodTable *pArrayMT, DWORD cElements);
+// Allocate SD array of object pointers.  StubLinker-generated asm code might
+// implement this, so the element TypeHandle is passed as a PVOID to avoid any
+// struct calling convention weirdness.
+typedef HCCALL2_PTR(Object*, FastObjectArrayAllocatorFuncPtr, /*TypeHandle*/PVOID ArrayType, DWORD cElements);
 
 extern FastObjectArrayAllocatorFuncPtr fastObjectArrayAllocator;
 

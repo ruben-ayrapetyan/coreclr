@@ -886,7 +886,7 @@ void *JIT_TrialAlloc::GenBox(Flags flags)
 }
 
 
-HCIMPL2_RAW(Object*, UnframedAllocateObjectArray, MethodTable *pArrayMT, DWORD cElements)
+HCIMPL2_RAW(Object*, UnframedAllocateObjectArray, /*TypeHandle*/PVOID ArrayType, DWORD cElements)
 {
     // This isn't _really_ an FCALL and therefore shouldn't have the 
     // SO_TOLERANT part of the FCALL_CONTRACT b/c it is not entered
@@ -898,7 +898,7 @@ HCIMPL2_RAW(Object*, UnframedAllocateObjectArray, MethodTable *pArrayMT, DWORD c
         SO_INTOLERANT;
     } CONTRACTL_END;
 
-    return OBJECTREFToObject(AllocateArrayEx(pArrayMT,
+    return OBJECTREFToObject(AllocateArrayEx(TypeHandle::FromPtr(ArrayType),
                            (INT32 *)(&cElements),
                            1,
                            FALSE
@@ -938,7 +938,8 @@ void *JIT_TrialAlloc::GenAllocArray(Flags flags)
     CodeLabel *noLock  = sl.NewCodeLabel();
     CodeLabel *noAlloc = sl.NewCodeLabel();
 
-    // We were passed a (shared) method table in RCX, which contains the element type.
+    // We were passed a type descriptor in ECX, which contains the (shared)
+    // array method table and the element type.
 
     // If this is the allocator for use from unmanaged code, ECX contains the
     // element type descriptor, or the CorElementType.
@@ -955,7 +956,12 @@ void *JIT_TrialAlloc::GenAllocArray(Flags flags)
 
     if (flags & NO_FRAME)
     {
-        if ((flags & OBJ_ARRAY) == 0)
+        if (flags & OBJ_ARRAY)
+        {
+            // we need to load the true method table from the type desc
+            sl.X86EmitIndexRegLoad(kECX, kECX, offsetof(ArrayTypeDesc,m_TemplateMT)-2);
+        }
+        else
         {
             // mov ecx,[g_pPredefinedArrayTypes+ecx*4]
             sl.Emit8(0x8b);
@@ -967,7 +973,6 @@ void *JIT_TrialAlloc::GenAllocArray(Flags flags)
 
             // je noLock
             sl.X86EmitCondJump(noLock, X86CondCode::kJZ);
-
             sl.X86EmitPushReg(kEDX);
             sl.X86EmitCall(sl.NewExternalCodeLabel((LPVOID)UnframedGetTemplateMethodTable), 0);
             sl.X86EmitPopReg(kEDX);
@@ -1076,7 +1081,7 @@ void *JIT_TrialAlloc::GenAllocArray(Flags flags)
     // pop edx - element count
     sl.X86EmitPopReg(kEDX);
 
-    // pop ecx - array method table
+    // pop ecx - array type descriptor
     sl.X86EmitPopReg(kECX);
 
     // mov             dword ptr [eax]ArrayBase.m_NumComponents, edx
@@ -1101,7 +1106,7 @@ void *JIT_TrialAlloc::GenAllocArray(Flags flags)
     // pop edx - element count
     sl.X86EmitPopReg(kEDX);
 
-    // pop ecx - array method table
+    // pop ecx - array type descriptor
     sl.X86EmitPopReg(kECX);
 
     CodeLabel * target;
