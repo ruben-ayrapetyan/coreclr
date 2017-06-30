@@ -613,11 +613,6 @@ typedef struct _DacGlobals
     ULONG fn__ThreadpoolMgr__AsyncTimerCallbackCompletion;
     ULONG fn__DACNotifyCompilationFinished;
     ULONG fn__ThePreStub;
-
-#ifdef _TARGET_ARM_
-    ULONG fn__ThePreStubCompactARM;
-#endif // _TARGET_ARM_
-
     ULONG fn__ThePreStubPatchLabel;
     ULONG fn__PrecodeFixupThunk;
     ULONG fn__StubDispatchFixupStub;
@@ -2346,7 +2341,6 @@ typedef ArrayDPTR(signed char) PTR_SBYTE;
 typedef ArrayDPTR(const BYTE) PTR_CBYTE;
 typedef DPTR(INT8)    PTR_INT8;
 typedef DPTR(INT16)   PTR_INT16;
-typedef DPTR(UINT16)  PTR_UINT16;
 typedef DPTR(WORD)    PTR_WORD;
 typedef DPTR(USHORT)  PTR_USHORT;
 typedef DPTR(DWORD)   PTR_DWORD;

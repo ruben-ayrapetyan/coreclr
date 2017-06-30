@@ -63,6 +63,7 @@ EXTERN_C void DeleteFromPitchingCandidate(MethodDesc* pMD);
 EXTERN_C void MarkMethodNotPitchingCandidate(MethodDesc* pMD);
 #endif
 
+EXTERN_C void STDCALL ThePreStub();
 EXTERN_C void STDCALL ThePreStubPatch();
 
 //==========================================================================
@@ -1404,21 +1405,6 @@ Stub * MakeInstantiatingStubWorker(MethodDesc *pMD)
     RETURN pstub;
 }
 #endif // defined(FEATURE_SHARE_GENERIC_CODE)
-
-#if defined (HAS_COMPACT_ENTRYPOINTS) && defined (_TARGET_ARM_)
-
-extern "C" MethodDesc * STDCALL PreStubGetMethodDescForCompactEntryPoint (PCODE pCode)
-{
-    _ASSERTE (pCode >= PC_REG_RELATIVE_OFFSET);
-
-    pCode = (PCODE) (pCode - PC_REG_RELATIVE_OFFSET + THUMB_CODE);
-
-    _ASSERTE (MethodDescChunk::IsCompactEntryPointAtAddress (pCode));
-
-    return MethodDescChunk::GetMethodDescFromCompactEntryPoint(pCode, FALSE);
-}
-
-#endif // defined (HAS_COMPACT_ENTRYPOINTS) && defined (_TARGET_ARM_)
 
 //=============================================================================
 // This function generates the real code for a method and installs it into
