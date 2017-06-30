@@ -3926,7 +3926,8 @@ void CodeGen::instGen_Set_Reg_To_Imm(emitAttr size, regNumber reg, ssize_t imm, 
 
         if (EA_IS_RELOC(size))
         {
-            genMov32RelocatableImmediate(size, imm, reg);
+            getEmitter()->emitIns_R_I(INS_movw, size, reg, imm);
+            getEmitter()->emitIns_R_I(INS_movt, size, reg, imm);
         }
         else if (arm_Valid_Imm_For_Mov(imm))
         {

@@ -448,8 +448,6 @@ class ZapperOptions
 
     bool        m_fNoMetaData;          // Do not copy metadata and IL to native image
 
-    void SetCompilerFlags(void);
-
     ZapperOptions();
     ~ZapperOptions();
 };
