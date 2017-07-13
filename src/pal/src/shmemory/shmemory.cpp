@@ -361,8 +361,8 @@ static Volatile<HANDLE> locking_thread;
 
 /* Constants ******************************************************************/
 
-/* size of a single segment : 256KB */
-static const int segment_size = 0x40000;
+/* size of a single segment : 4KB */
+static const int segment_size = 0x1000;
 
 /* Static function prototypes *************************************************/
 
