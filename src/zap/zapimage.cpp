@@ -10,6 +10,13 @@
 // 
 // ======================================================================================
 
+
+
+//#include <stdio.h>
+// #include <fstream>
+// #include <sstream>
+// #include <string>
+
 #include "common.h"
 #include "strsafe.h"
 
@@ -28,6 +35,32 @@
 #endif
 
 #include "md5.h"
+
+int count = 18;
+
+static const WCHAR *names[] =
+{
+  u"/opt/usr/dotnet-2.0.0/System.Private.CoreLib.dll",
+  u"/opt/usr/dotnet-2.0.0/System.Text.RegularExpressions.dll",
+  u"/opt/usr/dotnet-2.0.0/System.Private.Uri.dll",
+  u"/opt/usr/dotnet-2.0.0/System.ObjectModel.dll",
+  u"/opt/usr/dotnet-2.0.0/System.Private.DataContractSerialization.dll",
+  u"/opt/usr/dotnet-2.0.0/System.Linq.dll",
+  u"/opt/usr/dotnet-2.0.0/System.Private.Xml.dll",
+  u"/opt/usr/dotnet-2.0.0/System.IO.FileSystem.dll",
+  u"/opt/usr/dotnet-2.0.0/System.Linq.Expressions.dll",
+  u"/opt/usr/dotnet-2.0.0/System.Collections.dll",
+  u"/opt/usr/dotnet-2.0.0/System.Reflection.Metadata.dll",
+  u"/opt/usr/dotnet.tizen/Xamarin.Forms.Platform.dll",
+  u"/opt/usr/dotnet.tizen/Tizen.dll",
+  u"/opt/usr/dotnet.tizen/Tizen.Applications.dll",
+  u"/opt/usr/dotnet.tizen/Xamarin.Forms.Core.dll",
+  u"/opt/usr/dotnet.tizen/Xamarin.Forms.Xaml.dll",
+  u"/opt/usr/dotnet.tizen/Xamarin.Forms.Platform.Tizen.dll",
+  u"/opt/usr/dotnet.tizen/ElmSharp.dll"
+};
+
+static const uint32_t base_addr = 0x1000000;
 
 // This is RTL_CONTAINS_FIELD from ntdef.h
 #define CONTAINS_FIELD(Struct, Size, Field) \
@@ -1225,59 +1258,70 @@ void ZapImage::CalculateZapBaseAddress()
 
         baseAddress = (SIZE_T) peFlat.GetPreferredBase();
     }
+    
+    for (uint32_t index = 0; index < count; ++index)
+    {
+      printf ("Checking %ws\n", names[index]);
+      if (wcscmp (names[index], m_pModuleFileName) == 0)
+      {
+        baseAddress = base_addr * (index + 1);
+        printf ("Found! Setting %u\n", baseAddress);
+        break;
+      }
+    }
 
     // See if the header has the linker's default preferred base address
-    if (baseAddress == (SIZE_T) 0x00400000)
-    {
-        if (m_fManifestModule)
-        {
-            // Set the base address for the main assembly with the manifest
-        
-            if (!m_ModuleDecoder.IsDll())
-            {
-#if defined(_TARGET_X86_)
-                // We use 30000000 for an exe
-                baseAddress = 0x30000000;
-#elif defined(_WIN64)
-                // We use 04000000 for an exe
-                // which is remapped to 0x642`88000000 on x64
-                baseAddress = 0x04000000;
-#endif
-            }
-            else
-            {
-#if defined(_TARGET_X86_)
-                // We start a 31000000 for the main assembly with the manifest
-                baseAddress = 0x31000000;
-#elif defined(_WIN64)
-                // We start a 05000000 for the main assembly with the manifest
-                // which is remapped to 0x642`8A000000 on x64
-                baseAddress = 0x05000000;
-#endif
-            }
-        }
-        else // is dependent assembly of a multi-module assembly
-        {
-            // Set the base address for a dependant multi module assembly
-                
-            // We should have already set the nextBaseAddressForMultiModule
-            // when we compiled the manifest module
-            _ASSERTE(nextBaseAddressForMultiModule != 0);
-            baseAddress = nextBaseAddressForMultiModule;
-        }
-    }
-    else 
-    {
-        //
-        // For some assemblies we have to move the ngen image base address up
-        // past the end of IL image so that that we don't have a conflict.
-        //
-        // CoreCLR currently always loads both the IL and the native image, so
-        // move the native image out of the way.
-        {
-            baseAddress += m_ModuleDecoder.GetVirtualSize();
-        }
-    }
+//     if (baseAddress == (SIZE_T) 0x00400000)
+//     {
+//         if (m_fManifestModule)
+//         {
+//             // Set the base address for the main assembly with the manifest
+//         
+//             if (!m_ModuleDecoder.IsDll())
+//             {
+// #if defined(_TARGET_X86_)
+//                 // We use 30000000 for an exe
+//                 baseAddress = 0x30000000;
+// #elif defined(_WIN64)
+//                 // We use 04000000 for an exe
+//                 // which is remapped to 0x642`88000000 on x64
+//                 baseAddress = 0x04000000;
+// #endif
+//             }
+//             else
+//             {
+// #if defined(_TARGET_X86_)
+//                 // We start a 31000000 for the main assembly with the manifest
+//                 baseAddress = 0x31000000;
+// #elif defined(_WIN64)
+//                 // We start a 05000000 for the main assembly with the manifest
+//                 // which is remapped to 0x642`8A000000 on x64
+//                 baseAddress = 0x05000000;
+// #endif
+//             }
+//         }
+//         else // is dependent assembly of a multi-module assembly
+//         {
+//             // Set the base address for a dependant multi module assembly
+//                 
+//             // We should have already set the nextBaseAddressForMultiModule
+//             // when we compiled the manifest module
+//             _ASSERTE(nextBaseAddressForMultiModule != 0);
+//             baseAddress = nextBaseAddressForMultiModule;
+//         }
+//     }
+//     else 
+//     {
+//         //
+//         // For some assemblies we have to move the ngen image base address up
+//         // past the end of IL image so that that we don't have a conflict.
+//         //
+//         // CoreCLR currently always loads both the IL and the native image, so
+//         // move the native image out of the way.
+//         {
+//             baseAddress += m_ModuleDecoder.GetVirtualSize();
+//         }
+//     }
 
     // Round to a multiple of 64K
     // 64K is the allocation granularity of VirtualAlloc. (Officially this number is not a constant -
@@ -1289,31 +1333,31 @@ void ZapImage::CalculateZapBaseAddress()
     //
     // Calculate the nextBaseAddressForMultiModule
     //
-    SIZE_T tempBaseAddress = baseAddress;
-    tempBaseAddress += (SIZE_T) (CODE_EXPANSION_FACTOR * (double) m_ModuleDecoder.GetVirtualSize());
-    tempBaseAddress += BASE_ADDRESS_ALIGNMENT;
-    tempBaseAddress = (tempBaseAddress + BASE_ADDRESS_ALIGNMENT) & ~BASE_ADDRESS_ALIGNMENT;
-    
-    nextBaseAddressForMultiModule = tempBaseAddress;
+    // SIZE_T tempBaseAddress = baseAddress;
+    // tempBaseAddress += (SIZE_T) (CODE_EXPANSION_FACTOR * (double) m_ModuleDecoder.GetVirtualSize());
+    // tempBaseAddress += BASE_ADDRESS_ALIGNMENT;
+    // tempBaseAddress = (tempBaseAddress + BASE_ADDRESS_ALIGNMENT) & ~BASE_ADDRESS_ALIGNMENT;
+    // 
+    // nextBaseAddressForMultiModule = tempBaseAddress;
 
-    //
-    // Now we remap the 32-bit address range used for x86 and PE32 images into thre
-    // upper address range used on 64-bit platforms
-    //
-#if USE_UPPER_ADDRESS
-#if defined(_WIN64)
-    if (baseAddress < 0x80000000)
-    {
-        if (baseAddress < 0x40000000)
-            baseAddress += 0x40000000; // We map [00000000..3fffffff] to [642'80000000..642'ffffffff]
-        else
-            baseAddress -= 0x40000000; // We map [40000000..7fffffff] to [642'00000000..642'7fffffff]
-
-        baseAddress *= UPPER_ADDRESS_MAPPING_FACTOR;
-        baseAddress += CLR_UPPER_ADDRESS_MIN;
-    }
-#endif
-#endif
+//     //
+//     // Now we remap the 32-bit address range used for x86 and PE32 images into thre
+//     // upper address range used on 64-bit platforms
+//     //
+// #if USE_UPPER_ADDRESS
+// #if defined(_WIN64)
+//     if (baseAddress < 0x80000000)
+//     {
+//         if (baseAddress < 0x40000000)
+//             baseAddress += 0x40000000; // We map [00000000..3fffffff] to [642'80000000..642'ffffffff]
+//         else
+//             baseAddress -= 0x40000000; // We map [40000000..7fffffff] to [642'00000000..642'7fffffff]
+// 
+//         baseAddress *= UPPER_ADDRESS_MAPPING_FACTOR;
+//         baseAddress += CLR_UPPER_ADDRESS_MIN;
+//     }
+// #endif
+// #endif
 
 
     // Apply the calculated base address.
