@@ -217,6 +217,7 @@ set(VM_SOURCES_WKS
     marshalnative.cpp
     marvin32.cpp
     mdaassistants.cpp
+    mcprofiler.cpp
     methodtablebuilder.cpp
     mlinfo.cpp
     mscorlib.cpp # <DisablePrecompiledHeaders>true</DisablePrecompiledHeaders>

@@ -235,6 +235,8 @@
 #include "process.h"
 #endif // !FEATURE_PAL
 
+#include "mcprofiler.h"
+
 #ifdef FEATURE_IPCMAN
 static HRESULT InitializeIPCManager(void);
 static void PublishIPCManager(void);
@@ -1029,6 +1031,10 @@ void EEStartupHelper(COINITIEE fFlags)
         // Start the event pipe if requested.
         EventPipe::EnableOnStartup();
 #endif // FEATURE_PERFTRACING
+
+#ifdef FEATURE_MEMORY_CONSUMPTION_SAMPLING
+        MCProfiler::Enable();
+#endif // FEATURE_MEMORY_CONSUMPTION_SAMPLING
 
 #endif // CROSSGEN_COMPILE
 
