@@ -44,6 +44,15 @@ namespace CorUnix
         HANDLE hEvent,
         BOOL fSetEvent
         );
+
+    PAL_ERROR
+    InternalOpenEvent(
+        CPalThread *pThread,
+        DWORD dwDesiredAccess,
+        BOOL bInheritHandle,
+        LPCWSTR lpName,
+        HANDLE *phEvent
+        );
         
 }
 

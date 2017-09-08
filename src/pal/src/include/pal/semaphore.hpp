@@ -49,6 +49,15 @@ namespace CorUnix
         LONG lReleaseCount,
         LPLONG lpPreviousCount
         );
+
+    PAL_ERROR
+    InternalOpenSemaphore(
+        CPalThread *pThread,
+        DWORD dwDesiredAccess,
+        BOOL bInheritHandle,
+        LPCWSTR lpName,
+        HANDLE *phSemaphore
+        );
         
 }
 

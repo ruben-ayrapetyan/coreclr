@@ -126,26 +126,12 @@ FileMappingInitializationRoutine(
     void *pProcessLocalData
     );
 
-void
-CFileMappingImmutableDataCopyRoutine(
-    void *pImmData,
-    void *pImmDataTarget
-    );
-
-void
-CFileMappingImmutableDataCleanupRoutine(
-    void *pImmData
-    );
-
 CObjectType CorUnix::otFileMapping(
                 otiFileMapping,
                 FileMappingCleanupRoutine,
                 FileMappingInitializationRoutine,
                 sizeof(CFileMappingImmutableData),
-                CFileMappingImmutableDataCopyRoutine,
-                CFileMappingImmutableDataCleanupRoutine,
                 sizeof(CFileMappingProcessLocalData),
-                NULL,   // No process local data cleanup routine
                 0,
                 PAGE_READWRITE | PAGE_READONLY | PAGE_WRITECOPY,
                 CObjectType::SecuritySupported,
@@ -159,33 +145,6 @@ CObjectType CorUnix::otFileMapping(
                 );
 
 CAllowedObjectTypes aotFileMapping(otiFileMapping);
-
-void
-CFileMappingImmutableDataCopyRoutine(
-    void *pImmData,
-    void *pImmDataTarget
-    )
-{
-    PAL_ERROR palError = NO_ERROR;
-    CFileMappingImmutableData *pImmutableData = (CFileMappingImmutableData *) pImmData;
-    CFileMappingImmutableData *pImmutableDataTarget = (CFileMappingImmutableData *) pImmDataTarget;
-
-    if (NULL != pImmutableData->lpFileName)
-    {
-        pImmutableDataTarget->lpFileName = strdup(pImmutableData->lpFileName);
-    }
-}
-
-void
-CFileMappingImmutableDataCleanupRoutine(
-    void *pImmData
-    )
-{
-    PAL_ERROR palError = NO_ERROR;
-    CFileMappingImmutableData *pImmutableData = (CFileMappingImmutableData *) pImmData;
-
-    free(pImmutableData->lpFileName);
-}
 
 void
 FileMappingCleanupRoutine(
@@ -220,7 +179,7 @@ FileMappingCleanupRoutine(
 
         if (pImmutableData->bPALCreatedTempFile)
         {
-            unlink(pImmutableData->lpFileName);
+            unlink(pImmutableData->szFileName);
         }
     }
 
@@ -281,7 +240,7 @@ FileMappingInitializationRoutine(
         reinterpret_cast<CFileMappingProcessLocalData *>(pvProcessLocalData);
 
     pProcessLocalData->UnixFd = InternalOpen(
-        pImmutableData->lpFileName,
+        pImmutableData->szFileName,
         MAPProtectionToFileOpenFlags(pImmutableData->flProtect) | O_CLOEXEC
         );
 
@@ -537,18 +496,16 @@ CorUnix::InternalCreateFileMapping(
         //
         
         /* Anonymous mapped files. */
-        _ASSERTE(pImmutableData->lpFileName == NULL);
-        pImmutableData->lpFileName = strdup("/dev/zero");
-        if (pImmutableData->lpFileName == NULL)
+        if (strcpy_s(pImmutableData->szFileName, sizeof(pImmutableData->szFileName), "/dev/zero") != SAFECRT_SUCCESS)
         {
-            ASSERT("Unable to copy string\n");
+            ERROR( "strcpy_s failed!\n" );
             palError = ERROR_INTERNAL_ERROR;
             goto ExitInternalCreateFileMapping;
         }
 
 #if HAVE_MMAP_DEV_ZERO
 
-        UnixFd = InternalOpen(pImmutableData->lpFileName, O_RDWR | O_CLOEXEC);
+        UnixFd = InternalOpen(pImmutableData->szFileName, O_RDWR | O_CLOEXEC);
         if ( -1 == UnixFd )
         {
             ERROR( "Unable to open the file.\n");
@@ -636,12 +593,10 @@ CorUnix::InternalCreateFileMapping(
                 }
                 goto ExitInternalCreateFileMapping;
             }
-
-            _ASSERTE(pImmutableData->lpFileName == NULL);
-            pImmutableData->lpFileName = strdup(pFileLocalData->unix_filename);
-            if (pImmutableData->lpFileName == NULL)
+  
+            if (strcpy_s(pImmutableData->szFileName, sizeof(pImmutableData->szFileName), pFileLocalData->unix_filename) != SAFECRT_SUCCESS)
             {
-                ASSERT("Unable to copy string\n");
+                ERROR( "strcpy_s failed!\n" );
                 palError = ERROR_INTERNAL_ERROR;
                 if (NULL != pFileLocalDataLock)
                 {
@@ -663,7 +618,7 @@ CorUnix::InternalCreateFileMapping(
 
             /* Create a temporary file on the filesystem in order to be 
                shared across processes. */
-            palError = MAPCreateTempFile(pThread, &UnixFd, pImmutableData->lpFileName);
+            palError = MAPCreateTempFile(pThread, &UnixFd, pImmutableData->szFileName);
             if (NO_ERROR != palError)
             {
                 ERROR("Unable to create the temporary file.\n");
@@ -811,7 +766,7 @@ ExitInternalCreateFileMapping:
 
         if (bPALCreatedTempFile)
         {
-            unlink(pImmutableData->lpFileName);
+            unlink(pImmutableData->szFileName);
         }
 
         if (-1 != UnixFd)
@@ -919,6 +874,63 @@ OpenFileMappingW(
     LOGEXIT("OpenFileMappingW returning %p.\n", hFileMapping);
     PERF_EXIT(OpenFileMappingW);
     return hFileMapping;
+}
+
+PAL_ERROR
+CorUnix::InternalOpenFileMapping(
+    CPalThread *pThread,
+    DWORD dwDesiredAccess,
+    BOOL bInheritHandle,
+    LPCWSTR lpName,
+    HANDLE *phMapping
+    )
+{
+    PAL_ERROR palError = NO_ERROR;
+    IPalObject *pFileMapping = NULL;
+    CPalString sObjectName(lpName);
+
+    if ( MAPContainsInvalidFlags( dwDesiredAccess ) ) 
+    {
+        ASSERT( "dwDesiredAccess can be one or more of FILE_MAP_READ, " 
+               "FILE_MAP_WRITE, FILE_MAP_COPY or FILE_MAP_ALL_ACCESS.\n" );
+        palError = ERROR_INVALID_PARAMETER;
+        goto ExitInternalOpenFileMapping;
+    }
+
+    palError = g_pObjectManager->LocateObject(
+        pThread,
+        &sObjectName,
+        &aotFileMapping, 
+        &pFileMapping
+        );
+
+    if (NO_ERROR != palError)
+    {
+        goto ExitInternalOpenFileMapping;
+    }
+
+    palError = g_pObjectManager->ObtainHandleForObject(
+        pThread,
+        pFileMapping,
+        dwDesiredAccess,
+        bInheritHandle,
+        NULL,
+        phMapping
+        );
+
+    if (NO_ERROR != palError)
+    {
+        goto ExitInternalOpenFileMapping;
+    }
+
+ExitInternalOpenFileMapping:
+
+    if (NULL != pFileMapping)
+    {
+        pFileMapping->ReleaseReference(pThread);
+    }
+    
+    return palError;
 }
 
 /*++
