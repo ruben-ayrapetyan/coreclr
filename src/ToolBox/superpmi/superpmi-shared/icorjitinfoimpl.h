@@ -109,8 +109,7 @@ CORINFO_MODULE_HANDLE getMethodModule(CORINFO_METHOD_HANDLE method);
 // vtable of it's owning class or interface.
 void getMethodVTableOffset(CORINFO_METHOD_HANDLE method,                /* IN */
                            unsigned*             offsetOfIndirection,   /* OUT */
-                           unsigned*             offsetAfterIndirection,/* OUT */
-                           bool*                 isRelative             /* OUT */
+                           unsigned*             offsetAfterIndirection /* OUT */
                            );
 
 // Find the virtual method in implementingClass that overrides virtualMethod.

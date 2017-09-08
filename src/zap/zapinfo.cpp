@@ -3688,11 +3688,10 @@ CORINFO_MODULE_HANDLE ZapInfo::getMethodModule(CORINFO_METHOD_HANDLE method)
 }
 
 void ZapInfo::getMethodVTableOffset(CORINFO_METHOD_HANDLE method,
-                                    unsigned * pOffsetOfIndirection,
-                                    unsigned * pOffsetAfterIndirection,
-                                    bool * isRelative)
+                                                  unsigned * pOffsetOfIndirection,
+                                                  unsigned * pOffsetAfterIndirection)
 {
-    m_pEEJitInfo->getMethodVTableOffset(method, pOffsetOfIndirection, pOffsetAfterIndirection, isRelative);
+    m_pEEJitInfo->getMethodVTableOffset(method, pOffsetOfIndirection, pOffsetAfterIndirection);
 }
 
 CORINFO_METHOD_HANDLE ZapInfo::resolveVirtualMethod(

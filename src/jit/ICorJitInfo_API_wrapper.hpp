@@ -122,11 +122,10 @@ CORINFO_MODULE_HANDLE WrapICorJitInfo::getMethodModule(
 void WrapICorJitInfo::getMethodVTableOffset(
             CORINFO_METHOD_HANDLE       method,                 /* IN */
             unsigned*                   offsetOfIndirection,    /* OUT */
-            unsigned*                   offsetAfterIndirection, /* OUT */
-            bool*                       isRelative              /* OUT */)
+            unsigned*                   offsetAfterIndirection  /* OUT */)
 {
     API_ENTER(getMethodVTableOffset);
-    wrapHnd->getMethodVTableOffset(method, offsetOfIndirection, offsetAfterIndirection, isRelative);
+    wrapHnd->getMethodVTableOffset(method, offsetOfIndirection, offsetAfterIndirection);
     API_LEAVE(getMethodVTableOffset);
 }
 

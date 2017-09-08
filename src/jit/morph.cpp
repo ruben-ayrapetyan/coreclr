@@ -7633,30 +7633,14 @@ void Compiler::fgMorphTailCall(GenTreeCall* call)
 
         unsigned vtabOffsOfIndirection;
         unsigned vtabOffsAfterIndirection;
-        bool     isRelative;
-        info.compCompHnd->getMethodVTableOffset(call->gtCallMethHnd, &vtabOffsOfIndirection, &vtabOffsAfterIndirection,
-                                                &isRelative);
+        info.compCompHnd->getMethodVTableOffset(call->gtCallMethHnd, &vtabOffsOfIndirection, &vtabOffsAfterIndirection);
 
         /* Get the appropriate vtable chunk */
 
         if (vtabOffsOfIndirection != CORINFO_VIRTUALCALL_NO_CHUNK)
         {
-            add = gtNewOperNode(GT_ADD, TYP_I_IMPL, vtbl, gtNewIconNode(vtabOffsOfIndirection, TYP_I_IMPL));
-
-            GenTreePtr indOffTree = nullptr;
-
-            if (isRelative)
-            {
-                indOffTree = impCloneExpr(add, &add, NO_CLASS_HANDLE, (unsigned)CHECK_SPILL_ALL,
-                                          nullptr DEBUGARG("virtual table call"));
-            }
-
+            add  = gtNewOperNode(GT_ADD, TYP_I_IMPL, vtbl, gtNewIconNode(vtabOffsOfIndirection, TYP_I_IMPL));
             vtbl = gtNewOperNode(GT_IND, TYP_I_IMPL, add);
-
-            if (isRelative)
-            {
-                vtbl = gtNewOperNode(GT_ADD, TYP_I_IMPL, vtbl, indOffTree);
-            }
         }
 
         /* Now the appropriate vtable slot */

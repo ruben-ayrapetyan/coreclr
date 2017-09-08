@@ -3341,7 +3341,14 @@ MethodDesc::Fixup(
             }
         }
 
-        image->FixupPlainOrRelativePointerField((InstantiatedMethodDesc*) this, &InstantiatedMethodDesc::m_pPerInstInfo);
+        if (decltype(InstantiatedMethodDesc::m_pPerInstInfo)::isRelative)
+        {
+            image->FixupRelativePointerField(this, offsetof(InstantiatedMethodDesc, m_pPerInstInfo));
+        }
+        else
+        {
+            image->FixupPointerField(this, offsetof(InstantiatedMethodDesc, m_pPerInstInfo));
+        }
 
         // Generic methods are dealt with specially to avoid encoding the formal method type parameters
         if (IsTypicalMethodDefinition())
@@ -3420,7 +3427,14 @@ MethodDesc::Fixup(
 
         NDirectMethodDesc *pNMD = (NDirectMethodDesc *)this;
 
-        image->FixupPlainOrRelativePointerField(pNMD, &NDirectMethodDesc::ndirect, &decltype(NDirectMethodDesc::ndirect)::m_pWriteableData);
+        if (decltype(NDirectMethodDesc::ndirect.m_pWriteableData)::isRelative)
+        {
+            image->FixupRelativePointerField(this, offsetof(NDirectMethodDesc, ndirect.m_pWriteableData));
+        }
+        else
+        {
+            image->FixupPointerField(this, offsetof(NDirectMethodDesc, ndirect.m_pWriteableData));
+        }
 
         NDirectWriteableData *pWriteableData = pNMD->GetWriteableData();
         NDirectImportThunkGlue *pImportThunkGlue = pNMD->GetNDirectImportThunkGlue();

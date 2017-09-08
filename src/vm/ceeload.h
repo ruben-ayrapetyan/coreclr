@@ -622,7 +622,7 @@ struct ModuleCtorInfo
     DWORD                   numElements;
     DWORD                   numLastAllocated;
     DWORD                   numElementsHot;
-    DPTR(RelativePointer<PTR_MethodTable>) ppMT; // size is numElements
+    DPTR(PTR_MethodTable)   ppMT;           // size is numElements
     PTR_ClassCtorInfoEntry  cctorInfoHot;   // size is numElementsHot
     PTR_ClassCtorInfoEntry  cctorInfoCold;  // size is numElements-numElementsHot
 
@@ -631,8 +631,8 @@ struct ModuleCtorInfo
     DWORD                   numHotHashes;
     DWORD                   numColdHashes;
 
-    ArrayDPTR(RelativeFixupPointer<PTR_MethodTable>) ppHotGCStaticsMTs;            // hot table
-    ArrayDPTR(RelativeFixupPointer<PTR_MethodTable>) ppColdGCStaticsMTs;           // cold table
+    ArrayDPTR(FixupPointer<PTR_MethodTable>) ppHotGCStaticsMTs;            // hot table
+    ArrayDPTR(FixupPointer<PTR_MethodTable>) ppColdGCStaticsMTs;           // cold table
 
     DWORD                   numHotGCStaticsMTs;
     DWORD                   numColdGCStaticsMTs;
@@ -668,13 +668,7 @@ struct ModuleCtorInfo
         return hashVal;
     };
 
-    ArrayDPTR(RelativeFixupPointer<PTR_MethodTable>) GetGCStaticMTs(DWORD index);
-
-    PTR_MethodTable GetMT(DWORD i)
-    {
-        LIMITED_METHOD_DAC_CONTRACT;
-        return ppMT[i].GetValue(dac_cast<TADDR>(ppMT) + i * sizeof(RelativePointer<PTR_MethodTable>));
-    }
+    ArrayDPTR(FixupPointer<PTR_MethodTable>) GetGCStaticMTs(DWORD index);
 
 #ifdef FEATURE_PREJIT
 
@@ -685,11 +679,11 @@ struct ModuleCtorInfo
     class ClassCtorInfoEntryArraySort : public CQuickSort<DWORD>
     {
     private:
-        DPTR(RelativePointer<PTR_MethodTable>) m_pBase1;
+        PTR_MethodTable *m_pBase1;
 
     public:
         //Constructor
-        ClassCtorInfoEntryArraySort(DWORD *base, DPTR(RelativePointer<PTR_MethodTable>) base1, int count)
+        ClassCtorInfoEntryArraySort(DWORD *base, PTR_MethodTable *base1, int count)
           : CQuickSort<DWORD>(base, count)
         {
             WRAPPER_NO_CONTRACT;
@@ -710,7 +704,6 @@ struct ModuleCtorInfo
                 return 1;
         }
         
-#ifndef DACCESS_COMPILE
         // Swap is overwriten so that we can sort both the MethodTable pointer
         // array and the ClassCtorInfoEntry array in parrallel.
         FORCEINLINE void Swap(SSIZE_T iFirst, SSIZE_T iSecond)
@@ -726,11 +719,10 @@ struct ModuleCtorInfo
             m_pBase[iFirst] = m_pBase[iSecond];
             m_pBase[iSecond] = sTemp;
 
-            sTemp1 = m_pBase1[iFirst].GetValueMaybeNull();
-            m_pBase1[iFirst].SetValueMaybeNull(m_pBase1[iSecond].GetValueMaybeNull());
-            m_pBase1[iSecond].SetValueMaybeNull(sTemp1);
+            sTemp1 = m_pBase1[iFirst];
+            m_pBase1[iFirst] = m_pBase1[iSecond];
+            m_pBase1[iSecond] = sTemp1;
         }
-#endif // !DACCESS_COMPILE
     };
 #endif // FEATURE_PREJIT
 };
@@ -2815,10 +2807,6 @@ public:
                                          Module *pContainingModule = NULL,
                                          ClassLoadLevel level = CLASS_LOADED);
     static void RestoreFieldDescPointer(RelativeFixupPointer<PTR_FieldDesc> * ppFD);
-
-    static void RestoreMethodTablePointer(PlainPointer<PTR_MethodTable> * ppMT,
-                                          Module *pContainingModule = NULL,
-                                          ClassLoadLevel level = CLASS_LOADED);
 
     static void RestoreModulePointer(RelativeFixupPointer<PTR_Module> * ppModule, Module *pContainingModule);
 

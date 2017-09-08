@@ -217,7 +217,6 @@ public:
         DWORD     testForFixup;
         DWORDLONG offsets[CORINFO_MAXINDIRECTIONS];
         DWORD     indirectFirstOffset;
-        DWORD     indirectSecondOffset;
     };
     struct Agnostic_CORINFO_LOOKUP
     {
@@ -247,7 +246,7 @@ public:
     {
         DWORD A;
         DWORD B;
-        DWORD C;
+        bool C;
     };
     struct Agnostic_CanTailCall
     {
@@ -860,13 +859,11 @@ public:
 
     void recGetMethodVTableOffset(CORINFO_METHOD_HANDLE method,
                                   unsigned*             offsetOfIndirection,
-                                  unsigned*             offsetAfterIndirection,
-                                  bool*                 isRelative);
-    void dmpGetMethodVTableOffset(DWORDLONG key, DDD value);
+                                  unsigned*             offsetAfterIndirection);
+    void dmpGetMethodVTableOffset(DWORDLONG key, DD value);
     void repGetMethodVTableOffset(CORINFO_METHOD_HANDLE method,
                                   unsigned*             offsetOfIndirection,
-                                  unsigned*             offsetAfterIndirection,
-                                  bool*                 isRelative);
+                                  unsigned*             offsetAfterIndirection);
 
     void recResolveVirtualMethod(CORINFO_METHOD_HANDLE  virtMethod,
                                  CORINFO_CLASS_HANDLE   implClass,

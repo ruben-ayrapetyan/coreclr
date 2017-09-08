@@ -2546,7 +2546,6 @@ void ProcessDynamicDictionaryLookup(TransitionBlock *           pTransitionBlock
     pResult->signature = NULL;
 
     pResult->indirectFirstOffset = 0;
-    pResult->indirectSecondOffset = 0;
 
     pResult->indirections = CORINFO_USEHELPER;
 
@@ -2619,12 +2618,6 @@ void ProcessDynamicDictionaryLookup(TransitionBlock *           pTransitionBlock
             IfFailThrow(sigptr.GetData(&data));
             pResult->offsets[2] = sizeof(TypeHandle) * data;
 
-            if (MethodTable::IsPerInstInfoRelative())
-            {
-                pResult->indirectFirstOffset = 1;
-                pResult->indirectSecondOffset = 1;
-            }
-
             return;
         }
     }
@@ -2669,12 +2662,6 @@ void ProcessDynamicDictionaryLookup(TransitionBlock *           pTransitionBlock
 
             // Next indirect through the dictionary appropriate to this instantiated type
             pResult->offsets[1] = sizeof(TypeHandle*) * (pContextMT->GetNumDicts() - 1);
-
-            if (MethodTable::IsPerInstInfoRelative())
-            {
-                pResult->indirectFirstOffset = 1;
-                pResult->indirectSecondOffset = 1;
-            }
 
             *pDictionaryIndexAndSlot |= dictionarySlot;
         }
