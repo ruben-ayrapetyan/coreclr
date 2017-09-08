@@ -949,7 +949,7 @@ namespace CorUnix
         if (SharedObject == odObjectDomain)
         {
             SharedID shridSynchData = m_cacheSHRSynchData.Get(pthrCurrent);
-            if (NULL == shridSynchData)
+            if (NULLSharedID == shridSynchData)
             {
                 ERROR("Unable to allocate shared memory\n");
                 return ERROR_NOT_ENOUGH_MEMORY;
@@ -962,8 +962,8 @@ namespace CorUnix
             _ASSERT_MSG(NULL != psdSynchData, "Bad shared memory pointer\n");
 
             // Initialize waiting list pointers
-            psdSynchData->SetWTLHeadShrPtr(NULL);
-            psdSynchData->SetWTLTailShrPtr(NULL);
+            psdSynchData->SetWTLHeadShrPtr(NULLSharedID);
+            psdSynchData->SetWTLTailShrPtr(NULLSharedID);
 
             // Store shared pointer to this object
             psdSynchData->SetSharedThis(shridSynchData);
@@ -984,7 +984,7 @@ namespace CorUnix
             psdSynchData->SetWTLTailPtr(NULL);
 
             // Set shared this pointer to NULL
-            psdSynchData->SetSharedThis(NULL);
+            psdSynchData->SetSharedThis(NULLSharedID);
 
             *ppvSynchData = static_cast<void *>(psdSynchData);
         }
@@ -2019,7 +2019,7 @@ namespace CorUnix
         if (SynchWorkerCmdRemoteSignal == swcWorkerCmd ||
             SynchWorkerCmdDelegatedObjectSignaling == swcWorkerCmd)
         {
-            SharedID shridMarshaledId = NULL;
+            SharedID shridMarshaledId = NULLSharedID;
 
             TRACE("Received %s cmd\n",
                   (swcWorkerCmd == SynchWorkerCmdRemoteSignal) ?
@@ -2499,7 +2499,7 @@ namespace CorUnix
         WaitingThreadsListNode * pWLNode = SharedIDToTypePointer(WaitingThreadsListNode, shridWLNode);
 
         _ASSERT_MSG(gPID != pWLNode->dwProcessId, "WakeUpRemoteThread called on local thread\n");
-        _ASSERT_MSG(NULL != shridWLNode, "NULL shared identifier\n");
+        _ASSERT_MSG(NULLSharedID != shridWLNode, "NULL shared identifier\n");
         _ASSERT_MSG(NULL != pWLNode, "Bad shared wait list node identifier (%p)\n", (VOID*)shridWLNode);
         _ASSERT_MSG(MsgSize <= PIPE_BUF, "Message too long [MsgSize=%d PIPE_BUF=%d]\n", MsgSize, (int)PIPE_BUF);
 
@@ -2556,7 +2556,7 @@ namespace CorUnix
             SharedIDToTypePointer(CSynchData, shridSynchData);
 
         _ASSERT_MSG(gPID != dwTargetProcessId, " called on local thread\n");
-        _ASSERT_MSG(NULL != shridSynchData, "NULL shared identifier\n");
+        _ASSERT_MSG(NULLSharedID != shridSynchData, "NULL shared identifier\n");
         _ASSERT_MSG(NULL != psdSynchData, "Bad shared SynchData identifier (%p)\n", (VOID*)shridSynchData);
         _ASSERT_MSG(MsgSize <= PIPE_BUF, "Message too long [MsgSize=%d PIPE_BUF=%d]\n", MsgSize, (int)PIPE_BUF);
 
@@ -3737,7 +3737,7 @@ namespace CorUnix
         PAL_ERROR palError = NO_ERROR;
         CSynchData *psdLocal = reinterpret_cast<CSynchData *>(pvLocalSynchData);
         CSynchData *psdShared = NULL;
-        SharedID shridSynchData = NULL;
+        SharedID shridSynchData = NULLSharedID;
         SharedID *rgshridWTLNodes = NULL;
         CObjectType *pot = NULL;
         ULONG ulcWaitingThreads;
@@ -3759,7 +3759,7 @@ namespace CorUnix
         //
 
         shridSynchData = m_cacheSHRSynchData.Get(pthrCurrent);
-        if (NULL == shridSynchData)
+        if (NULLSharedID == shridSynchData)
         {
             ERROR("Unable to allocate shared memory\n");
             palError = ERROR_NOT_ENOUGH_MEMORY;
@@ -3837,8 +3837,8 @@ namespace CorUnix
         // for the waiting threads
         //
 
-        psdShared->SetWTLHeadShrPtr(NULL);
-        psdShared->SetWTLTailShrPtr(NULL);
+        psdShared->SetWTLHeadShrPtr(NULLSharedID);
+        psdShared->SetWTLTailShrPtr(NULLSharedID);
 
         if (0 < ulcWaitingThreads)
         {
@@ -4020,7 +4020,7 @@ namespace CorUnix
 
     CThreadSynchronizationInfo::CThreadSynchronizationInfo() :
             m_tsThreadState(TS_IDLE),
-            m_shridWaitAwakened(NULL),
+            m_shridWaitAwakened(NULLSharedID),
             m_lLocalSynchLockCount(0),
             m_lSharedSynchLockCount(0),
             m_ownedNamedMutexListHead(nullptr)
@@ -4037,9 +4037,9 @@ namespace CorUnix
     CThreadSynchronizationInfo::~CThreadSynchronizationInfo()
     {
         DeleteCriticalSection(&m_ownedNamedMutexListLock);
-        if (NULL != m_shridWaitAwakened)
+        if (NULLSharedID != m_shridWaitAwakened)
         {
-            free(m_shridWaitAwakened);
+            RawSharedObjectFree(m_shridWaitAwakened);
         }
     }
 
@@ -4091,8 +4091,9 @@ namespace CorUnix
         pthread_condattr_t attrs;
         pthread_condattr_t *attrsPtr = nullptr;
 
-        m_shridWaitAwakened = malloc(sizeof(DWORD));
-        if (NULL == m_shridWaitAwakened)
+        m_shridWaitAwakened = RawSharedObjectAlloc(sizeof(DWORD),
+                                                   DefaultSharedPool);
+        if (NULLSharedID == m_shridWaitAwakened)
         {
             ERROR("Fail allocating thread wait status shared object\n");
             palErr = ERROR_NOT_ENOUGH_MEMORY;

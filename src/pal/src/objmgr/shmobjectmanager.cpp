@@ -277,7 +277,7 @@ CSharedMemoryObjectManager::RegisterObject(
 
     if (0 != poa->sObjectName.GetStringLength())
     {
-        SHMPTR shmObjectListHead = NULL;
+        SHMPTR shmObjectListHead = SHMNULL;
 
         //
         // The object must be shared
@@ -352,7 +352,7 @@ CSharedMemoryObjectManager::RegisterObject(
         }
 
         shmObjectListHead = SHMGetInfo(SIID_NAMED_OBJECTS);
-        if (NULL != shmObjectListHead)
+        if (SHMNULL != shmObjectListHead)
         {
             SHMObjData *psmodListHead;
             
@@ -505,8 +505,8 @@ CSharedMemoryObjectManager::LocateObject(
 {
     PAL_ERROR palError = NO_ERROR;
     IPalObject *pobjExisting = NULL;
-    SHMPTR shmSharedObjectData = NULL;
-    SHMPTR shmObjectListEntry = NULL;
+    SHMPTR shmSharedObjectData = SHMNULL;
+    SHMPTR shmObjectListEntry = SHMNULL;
     SHMObjData *psmod = NULL;
     LPWSTR pwsz = NULL;
 
@@ -598,7 +598,7 @@ CSharedMemoryObjectManager::LocateObject(
     SHMLock();
     
     shmObjectListEntry = SHMGetInfo(SIID_NAMED_OBJECTS);
-    while (NULL != shmObjectListEntry)
+    while (SHMNULL != shmObjectListEntry)
     {
         psmod = SHMPTR_TO_TYPED_PTR(SHMObjData, shmObjectListEntry);
         if (NULL != psmod)
@@ -634,7 +634,7 @@ CSharedMemoryObjectManager::LocateObject(
         }
     }
 
-    if (NULL != shmSharedObjectData)
+    if (SHMNULL != shmSharedObjectData)
     {
         CSharedMemoryObject *pshmobj = NULL;
         CObjectAttributes oa(pwsz, NULL);
@@ -1094,7 +1094,7 @@ CSharedMemoryObjectManager::ImportSharedObjectIntoProcess(
     _ASSERTE(NULL != pthr);
     _ASSERTE(NULL != pot);
     _ASSERTE(NULL != poa);
-    _ASSERTE(NULL != shmSharedObjectData);
+    _ASSERTE(SHMNULL != shmSharedObjectData);
     _ASSERTE(NULL != psmod);
     _ASSERTE(NULL != ppshmobj);
 
